@@ -1,0 +1,48 @@
+name: Findaureus
+display_name: Locate bacteria
+contributions:
+  commands:
+    - id: Findaureus.get_reader
+      python_name: findaureus._reader:napari_get_reader
+      title: Open data with Locate bacteria
+    - id: Findaureus.write_multiple
+      python_name: findaureus._writer:write_multiple
+      title: Save multi-layer data with Locate bacteria
+    - id: Findaureus.write_single_image
+      python_name: findaureus._writer:write_single_image
+      title: Save image data with Locate bacteria
+    - id: Findaureus.make_sample_data
+      python_name: findaureus._sample_data:make_sample_data
+      title: Load sample data from Locate bacteria
+    - id: Findaureus.make_qwidget
+      python_name: findaureus._widget:ExampleQWidget
+      title: Make example QWidget
+    - id: Findaureus.make_magic_widget
+      python_name: findaureus._widget:example_magic_widget
+      title: Make example magic widget
+    - id: Findaureus.make_func_widget
+      python_name: findaureus._widget:example_function_widget
+      title: Make example function widget
+  readers:
+    - command: Findaureus.get_reader
+      accepts_directories: false
+      filename_patterns: ['*.npy']
+  writers:
+    - command: Findaureus.write_multiple
+      layer_types: ['image*','labels*']
+      filename_extensions: []
+    - command: Findaureus.write_single_image
+      layer_types: ['image']
+      filename_extensions: ['.npy']
+  sample_data:
+    - command: Findaureus.make_sample_data
+      display_name: Locate bacteria
+      key: unique_id.1
+  widgets:
+    - command: Findaureus.make_qwidget
+      display_name: Example QWidget
+    - command: Findaureus.make_magic_widget
+      display_name: Example Magic Widget
+    - command: Findaureus.make_func_widget
+      autogenerate: true
+      display_name: Example Function Widget
