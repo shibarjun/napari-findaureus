@@ -1,39 +1,34 @@
-"""
-This module is an example of a barebones numpy reader plugin for napari.
+from tkinter import Tk, filedialog
+from io import BytesIO
+import os
+from src.findaureus.module_needed import *
+root = Tk()
+root.withdraw()
+path = filedialog.askopenfilename(title="Select file",filetypes = [("czi, nd2, lif","*.czi;*.nd2;*.lif")])
 
-It implements the Reader specification, but your plugin may choose to
-implement multiple readers or even other plugin contributions. see:
-https://napari.org/stable/plugins/guides.html?#readers
-"""
-from .module_needed import *
+image_from_channels = []
+try:
+    inputimagefileobject, inputimagefilenumpyarray, inputimagefilemetadata = ReadFile.ReadImageFile(path)
+    channels = ReadFile.ChannelColor(path)
+except:
+    inputimagefilemetadata, inputimagefilenumpyarray = ReadFileException.ReadImageFile(path)
+    channels = ReadFileException.No_ChannelsAvaliable(inputimagefilemetadata)
+    z_value, x_value, y_value = ReadFileException.ImageScalingXY(inputimagefilemetadata)
+    for channel_no in range(0, len(channels)):
+        channelimagelist = ReadFileException.ChannelImageList(inputimagefilenumpyarray, channel_no)
+        image_from_channels.append((channelimagelist))
+else:
+    z_value, x_value, y_value = ReadFile.ImageScalingXY(inputimagefileobject)
+    for channel_no in range(0, len(channels)):
+        channelimagelist = ReadFile.ChannelImageList(inputimagefilenumpyarray, channel_no)
+        image_from_channels.append((channelimagelist))
 
-def napari_get_reader(path):
-    """A basic implementation of a Reader contribution.
+meta = {"name": channels}
 
-    Parameters
-    ----------
-    path : str or list of str
-        Path to file, or list of paths.
-
-    Returns
-    -------
-    function or None
-        If the path is a recognized format, return a function that accepts the
-        same path or list of paths, and returns a list of layer data tuples.
-    """
-    if isinstance(path, list):
-        # reader plugins may be handed single path, or a list of paths.
-        # if it is a list, it is assumed to be an image stack...
-        # so we are only going to look at the first file.
-        path = path[0]
-
-    # if we know we cannot read the file, we immediately return None.
-    if not path.endswith(".czi"):
-        return None
-
-    # otherwise we return the *function* that can read ``path``.
-    return reader_function
-
+data = np.stack(image_from_channels)
+data1 = np.expand_dims(data, -1)
+data2 = data1.transpose(4,1,0,2,3)
+#%%
 def reader_function(path):
     """Take a path or list of paths and return a list of LayerData tuples.
     
@@ -57,7 +52,6 @@ def reader_function(path):
         default to layer_type=="image" if not provided
     """
 # handle both a string and a list of strings
-    
     image_from_channels = []
     try:
         inputimagefileobject, inputimagefilenumpyarray, inputimagefilemetadata = ReadFile.ReadImageFile(path)
@@ -74,17 +68,24 @@ def reader_function(path):
         for channel_no in range(0, len(channels)):
             channelimagelist = ReadFile.ChannelImageList(inputimagefilenumpyarray, channel_no)
             image_from_channels.append((channelimagelist))
-            
+    
+    # paths = [path] if isinstance(path, str) else path
+    # load all files into array
+    # arrays = [np.load(_path) for _path in paths]
+    # stack arrays into single array
     data = np.stack(image_from_channels)
     data = np.expand_dims(data, -1)
     data = data.transpose(4,1,0,2,3)
+    
     # optional kwargs for the corresponding viewer.add_* method
     if z_value==0:
         
-        add_kwargs = {"scale": (y_value,x_value),"channel_axis": 2, "name": channels}
+        add_kwargs = {"scale": (y_value,x_value)}
     else:
-        add_kwargs = {"scale": (z_value,y_value,x_value),"channel_axis": 2,"name": channels}
+        add_kwargs = {"scale": (z_value,y_value,x_value)}
     # add_kwargs = {}
     layer_type = "image"  # optional, default is "image"
     
     return [(data, add_kwargs, layer_type)]
+
+daa = reader_function(path)

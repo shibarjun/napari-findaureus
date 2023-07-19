@@ -14,19 +14,19 @@ contributions:
     - id: Findaureus.make_sample_data
       python_name: findaureus._sample_data:make_sample_data
       title: Load sample data from Locate bacteria
-    - id: Findaureus.make_qwidget
-      python_name: findaureus._widget:ExampleQWidget
-      title: Make example QWidget
+    # - id: Findaureus.make_qwidget
+    #   python_name: findaureus._widget:ExampleQWidget
+    #   title: Make example QWidget
     - id: Findaureus.make_magic_widget
-      python_name: findaureus._widget:example_magic_widget
-      title: Make example magic widget
-    - id: Findaureus.make_func_widget
-      python_name: findaureus._widget:example_function_widget
-      title: Make example function widget
+      python_name: findaureus._widget:Find_Bacteria
+      title: Find bacteria
+    # - id: Findaureus.make_func_widget
+    #   python_name: findaureus._widget:example_function_widget
+    #   title: Make example function widget
   readers:
     - command: Findaureus.get_reader
       accepts_directories: false
-      filename_patterns: ['*.npy']
+      filename_patterns: ['*.czi']
   writers:
     - command: Findaureus.write_multiple
       layer_types: ['image*','labels*']
@@ -39,10 +39,10 @@ contributions:
       display_name: Locate bacteria
       key: unique_id.1
   widgets:
-    - command: Findaureus.make_qwidget
-      display_name: Example QWidget
+#    # - command: Findaureus.make_qwidget
+#    #   display_name: Example QWidget
     - command: Findaureus.make_magic_widget
-      display_name: Example Magic Widget
-    - command: Findaureus.make_func_widget
-      autogenerate: true
-      display_name: Example Function Widget
+      display_name: Find Bacteria
+# #   - command: Findaureus.make_func_widget
+# #     autogenerate: true
+# #     display_name: Example Function Widget
