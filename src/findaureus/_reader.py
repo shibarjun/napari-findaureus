@@ -32,7 +32,18 @@ def napari_get_reader(path):
         return None
 
     # otherwise we return the *function* that can read ``path``.
+    # return lambda path: reader_function(path), {'path': path}
     return reader_function
+
+def metadata (path):
+    
+    try:
+        inputimagefileobject_norm, inputimagefilenumpyarray_norm, inputimagefilemetadata_norm = ReadFile.ReadImageFile(path)
+        return (inputimagefileobject_norm,inputimagefilenumpyarray_norm,inputimagefilemetadata_norm, path)
+    except:
+        inputimagefilemetadata_exp, inputimagefilenumpyarray_exp = ReadFileException.ReadImageFile(path)
+        return (inputimagefilemetadata_exp,inputimagefilenumpyarray_exp, path)
+
 
 def reader_function(path):
     """Take a path or list of paths and return a list of LayerData tuples.
@@ -60,19 +71,19 @@ def reader_function(path):
     
     image_from_channels = []
     try:
-        inputimagefileobject, inputimagefilenumpyarray, inputimagefilemetadata = ReadFile.ReadImageFile(path)
+        inputimageobject, inputimagenumpyarray, inputimagemetadata,_ = metadata(path)
         channels = ReadFile.ChannelColor(path)
     except:
-        inputimagefilemetadata, inputimagefilenumpyarray = ReadFileException.ReadImageFile(path)
-        channels = ReadFileException.No_ChannelsAvaliable(inputimagefilemetadata)
-        z_value, x_value, y_value = ReadFileException.ImageScalingXY(inputimagefilemetadata)
+        inputimagemetadata, inputimagenumpyarray,_ = metadata(path)
+        channels = ReadFileException.No_ChannelsAvaliable(inputimagemetadata)
+        z_value, x_value, y_value = ReadFileException.ImageScalingXY(inputimagemetadata)
         for channel_no in range(0, len(channels)):
-            channelimagelist = ReadFileException.ChannelImageList(inputimagefilenumpyarray, channel_no)
+            channelimagelist = ReadFileException.ChannelImageList(inputimagenumpyarray, channel_no)
             image_from_channels.append((channelimagelist))
     else:
-        z_value, x_value, y_value = ReadFile.ImageScalingXY(inputimagefileobject)
+        z_value, x_value, y_value = ReadFile.ImageScalingXY(inputimageobject)
         for channel_no in range(0, len(channels)):
-            channelimagelist = ReadFile.ChannelImageList(inputimagefilenumpyarray, channel_no)
+            channelimagelist = ReadFile.ChannelImageList(inputimagenumpyarray, channel_no)
             image_from_channels.append((channelimagelist))
             
     data = np.stack(image_from_channels)

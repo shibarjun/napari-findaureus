@@ -1,6 +1,7 @@
 from tkinter import Tk, filedialog
 from io import BytesIO
 import os
+import napari
 from src.findaureus.module_needed import *
 root = Tk()
 root.withdraw()
@@ -89,3 +90,19 @@ def reader_function(path):
     return [(data, add_kwargs, layer_type)]
 
 daa = reader_function(path)
+#%%
+def display_arrays(arrays):
+    with napari.gui_qt():
+        # Create an empty viewer
+        viewer = napari.Viewer()
+
+        # Add each array to the viewer
+        for i, array in enumerate(arrays):
+            # Assuming 'arrays' is a list of NumPy arrays
+            viewer.add_image(array, name=f'Array {i+1}')
+
+display_arrays(channelimagelist)
+
+from src.findaureus._reader import *
+
+a = napari_get_reader(path)
