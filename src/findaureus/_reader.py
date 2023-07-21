@@ -71,10 +71,10 @@ def reader_function(path):
         image_dict = image_path.readlif()
             
     data = image_dict["image_array"]
-    try:
-        add_kwargs = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
-    except:
+    if image_dict["scaling_zxy"][0] == 0:
         add_kwargs = {"scale":image_dict["scaling_zxy"][1:] ,"channel_axis": 2,"name":image_dict["channel_name"] }
+    else:
+        add_kwargs = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
     # add_kwargs = {}
     layer_type = "image"  # optional, default is "image"
     

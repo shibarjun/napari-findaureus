@@ -132,7 +132,7 @@ class ReadImage:
         numpy_array = cf.imread(self.path)
         data["size_xy"]=ReadImage.ImageSize_czi(img_metadata)
         data["channel_name"]=ReadImage.ChannelsAvaliable_czi(img_metadata)
-        data["scaling_zxy"] =ReadImage.ImageScalingZXY_czi(img_metadata)
+        data["scaling_zxy"] =tuple(ReadImage.ImageScalingZXY_czi(img_metadata))
         data["z_planes"] =ReadImage.ZPlanes_czi(img_metadata)
         data["image_array"] =(ReadImage.ImageList_czi(numpy_array)).transpose(4,1,0,2,3)
         data["image_information"] = {"height":data["image_array"].shape[3:][0],
