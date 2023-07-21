@@ -6,7 +6,10 @@ implement multiple readers or even other plugin contributions. see:
 https://napari.org/stable/plugins/guides.html?#readers
 """
 # from .module_needed import *
+
+
 from .Module_Class import ReadImage
+
 def napari_get_reader(path):
     """A basic implementation of a Reader contribution.
 
@@ -68,7 +71,10 @@ def reader_function(path):
         image_dict = image_path.readlif()
             
     data = image_dict["image_array"]
-    add_kwargs = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
+    try:
+        add_kwargs = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
+    except:
+        add_kwargs = {"scale":image_dict["scaling_zxy"][1:] ,"channel_axis": 2,"name":image_dict["channel_name"] }
     # add_kwargs = {}
     layer_type = "image"  # optional, default is "image"
     

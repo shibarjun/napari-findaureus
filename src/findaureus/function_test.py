@@ -5,7 +5,7 @@ import napari
 from src.findaureus.module_needed import *
 root = Tk()
 root.withdraw()
-from Module_Class import ReadImage
+from src.findaureus.Module_Class import ReadImage
 path = filedialog.askopenfilename(title="Select file",filetypes = [("czi, nd2, lif","*.czi;*.nd2;*.lif")])
 
 f = ReadImage(path)

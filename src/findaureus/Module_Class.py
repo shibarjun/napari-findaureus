@@ -128,12 +128,12 @@ class ReadImage:
         
     def readczi (self):
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
-        metadata = (cf.CziFile(self.path)).metadata(raw=False)
+        img_metadata = (cf.CziFile(self.path)).metadata(raw=False)
         numpy_array = cf.imread(self.path)
-        data["size_xy"]=ReadImage.ImageSize_czi(metadata)
-        data["channel_name"]=ReadImage.ChannelsAvaliable_czi(metadata)
-        data["scaling_zxy"] =ReadImage.ImageScalingZXY_czi(metadata)
-        data["z_planes"] =ReadImage.ZPlanes_czi(metadata)
+        data["size_xy"]=ReadImage.ImageSize_czi(img_metadata)
+        data["channel_name"]=ReadImage.ChannelsAvaliable_czi(img_metadata)
+        data["scaling_zxy"] =ReadImage.ImageScalingZXY_czi(img_metadata)
+        data["z_planes"] =ReadImage.ZPlanes_czi(img_metadata)
         data["image_array"] =(ReadImage.ImageList_czi(numpy_array)).transpose(4,1,0,2,3)
         data["image_information"] = {"height":data["image_array"].shape[3:][0],
                                      "width":data["image_array"].shape[3:][1],
@@ -148,10 +148,10 @@ class ReadImage:
     def readnd2 (self):
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
         nd2object = AICSImage(self.path)
-        metadata = nd2object.metadata
+        img_metadata = nd2object.metadata
         numpy_array = nd2object.get_image_data("TZCXY")
         data["size_xy"]=nd2object.dims.X,nd2object.dims.Y
-        data["channel_name"]=ReadImage.ChannelsAvaliable_nd2(metadata,nd2object.dims.C)
+        data["channel_name"]=ReadImage.ChannelsAvaliable_nd2(img_metadata,nd2object.dims.C)
         data["scaling_zxy"] = nd2object.physical_pixel_sizes[0],nd2object.physical_pixel_sizes[1],nd2object.physical_pixel_sizes[2]
         data["z_planes"] = nd2object.dims.Z
         data["image_array"] =numpy_array
@@ -167,10 +167,10 @@ class ReadImage:
     def readlif (self):
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
         lifobject = AICSImage(self.path)
-        metadata = ReadImage.ElementToDict(lifobject.metadata)
+        img_metadata = ReadImage.ElementToDict(lifobject.metadata)
         numpy_array = lifobject.get_image_data("TZCXY")
         data["size_xy"]=lifobject.dims.X,lifobject.dims.Y
-        data["channel_name"]=ReadImage.ChannelsAvaliable_lif(metadata,lifobject.dims.C)
+        data["channel_name"]=ReadImage.ChannelsAvaliable_lif(img_metadata,lifobject.dims.C)
         data["scaling_zxy"] = lifobject.physical_pixel_sizes[0],lifobject.physical_pixel_sizes[1],lifobject.physical_pixel_sizes[2]
         data["z_planes"] = lifobject.dims.Z
         data["image_array"] =numpy_array
