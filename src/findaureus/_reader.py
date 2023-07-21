@@ -6,7 +6,7 @@ implement multiple readers or even other plugin contributions. see:
 https://napari.org/stable/plugins/guides.html?#readers
 """
 from .module_needed import *
-
+from Module_Class import ReadImage
 def napari_get_reader(path):
     """A basic implementation of a Reader contribution.
 
@@ -69,32 +69,12 @@ def reader_function(path):
     """
 # handle both a string and a list of strings
     
-    image_from_channels = []
-    try:
-        inputimageobject, inputimagenumpyarray, inputimagemetadata,_ = metadata(path)
-        channels = ReadFile.ChannelColor(path)
-    except:
-        inputimagemetadata, inputimagenumpyarray,_ = metadata(path)
-        channels = ReadFileException.No_ChannelsAvaliable(inputimagemetadata)
-        z_value, x_value, y_value = ReadFileException.ImageScalingXY(inputimagemetadata)
-        for channel_no in range(0, len(channels)):
-            channelimagelist = ReadFileException.ChannelImageList(inputimagenumpyarray, channel_no)
-            image_from_channels.append((channelimagelist))
-    else:
-        z_value, x_value, y_value = ReadFile.ImageScalingXY(inputimageobject)
-        for channel_no in range(0, len(channels)):
-            channelimagelist = ReadFile.ChannelImageList(inputimagenumpyarray, channel_no)
-            image_from_channels.append((channelimagelist))
+    image_path = ReadImage(path)
+    if path.endswith(".czi"):
+        image_dict = image_path.readczi()
             
-    data = np.stack(image_from_channels)
-    data = np.expand_dims(data, -1)
-    data = data.transpose(4,1,0,2,3)
-    # optional kwargs for the corresponding viewer.add_* method
-    if z_value==0:
-        
-        add_kwargs = {"scale": (y_value,x_value),"channel_axis": 2, "name": channels}
-    else:
-        add_kwargs = {"scale": (z_value,y_value,x_value),"channel_axis": 2,"name": channels}
+    data = image_dict["image_array"]
+    add_kwargs = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
     # add_kwargs = {}
     layer_type = "image"  # optional, default is "image"
     

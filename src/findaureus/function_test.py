@@ -5,8 +5,14 @@ import napari
 from src.findaureus.module_needed import *
 root = Tk()
 root.withdraw()
+from Module_Class import ReadImage
 path = filedialog.askopenfilename(title="Select file",filetypes = [("czi, nd2, lif","*.czi;*.nd2;*.lif")])
 
+f = ReadImage(path)
+g = f.readczi()
+h = f.readnd2()
+i = f.readlif()
+#%%
 image_from_channels = []
 try:
     inputimagefileobject, inputimagefilenumpyarray, inputimagefilemetadata = ReadFile.ReadImageFile(path)
