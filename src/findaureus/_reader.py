@@ -5,8 +5,8 @@ It implements the Reader specification, but your plugin may choose to
 implement multiple readers or even other plugin contributions. see:
 https://napari.org/stable/plugins/guides.html?#readers
 """
-from .module_needed import *
-from Module_Class import ReadImage
+# from .module_needed import *
+from .Module_Class import ReadImage
 def napari_get_reader(path):
     """A basic implementation of a Reader contribution.
 
@@ -28,22 +28,12 @@ def napari_get_reader(path):
         path = path[0]
 
     # if we know we cannot read the file, we immediately return None.
-    if not path.endswith(".czi"):
+    if not path.endswith((".czi",".nd2",".lif")):
         return None
 
     # otherwise we return the *function* that can read ``path``.
     # return lambda path: reader_function(path), {'path': path}
     return reader_function
-
-def metadata (path):
-    
-    try:
-        inputimagefileobject_norm, inputimagefilenumpyarray_norm, inputimagefilemetadata_norm = ReadFile.ReadImageFile(path)
-        return (inputimagefileobject_norm,inputimagefilenumpyarray_norm,inputimagefilemetadata_norm, path)
-    except:
-        inputimagefilemetadata_exp, inputimagefilenumpyarray_exp = ReadFileException.ReadImageFile(path)
-        return (inputimagefilemetadata_exp,inputimagefilenumpyarray_exp, path)
-
 
 def reader_function(path):
     """Take a path or list of paths and return a list of LayerData tuples.
@@ -72,6 +62,10 @@ def reader_function(path):
     image_path = ReadImage(path)
     if path.endswith(".czi"):
         image_dict = image_path.readczi()
+    if path.endswith(".nd2"):
+        image_dict = image_path.readnd2()
+    if path.endswith(".lif"):
+        image_dict = image_path.readlif()
             
     data = image_dict["image_array"]
     add_kwargs = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
