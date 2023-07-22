@@ -8,8 +8,8 @@ Replace code below according to your needs.
 """
 import numpy as np
 from typing import TYPE_CHECKING
-from findaureus.module_needed import *
-# from findaureus._reader import metadata
+from .Module_Class import ReadImage, FindBacteria
+# from ._reader.py import napari_get_reader
 from magicgui import magic_factory
 # from qtpy.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 @magic_factory
-def Find_Bacteria(img_layer: "napari.layers.Image", path:str) -> "napari.types.LayerDataTuple":
+def Find_Bacteria(img_layer: "napari.layers.Image") -> "napari.types.LayerDataTuple":
     
     # try:
     #     imgfilemetadata,_,_,_ = metadata(path)

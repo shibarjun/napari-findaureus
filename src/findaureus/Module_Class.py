@@ -123,8 +123,10 @@ class ReadImage:
             n_d_image = None
         return(n_d_image)
     
-    def __init__(self, path):
+    def __init__(self, path, data=None):
         self.path = path
+        # self.imagelist = image_list
+        self.data = data
         
     def readczi (self):
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
@@ -142,6 +144,7 @@ class ReadImage:
                                      "depth_um":round((data["image_array"].shape[1])*(data["scaling_zxy"][0]),3),
                                      "resoultion_um": round(1/(data["scaling_zxy"][2]),3)
                                      }
+        self.data=data
         return(data)
     
     
@@ -162,6 +165,7 @@ class ReadImage:
                                       "depth_um":round((data["image_array"].shape[1])*(data["scaling_zxy"][0]),3),
                                       "resoultion_um": round(1/(data["scaling_zxy"][2]),3)
                                      }
+        self.data=data
         return(data)
     
     def readlif (self):
@@ -181,4 +185,153 @@ class ReadImage:
                                       "depth_um":round((data["image_array"].shape[1])*(data["scaling_zxy"][0]),3),
                                       "resoultion_um": round(1/(data["scaling_zxy"][2]),3)
                                      }
+        self.data=data
         return (data)
+    
+# class FindBacteria:
+    
+    # def __init__(self, imagelist):
+    #     self.imagelist = imagelist
+    
+    def CreateBacteriaMask(input_image):
+        upper = int(np.max(input_image))
+        try:
+            lower = -np.log(0.001)*np.median(input_image) / np.log(2)
+        except ZeroDivisionError:
+            lower=()
+        bacteria_mask = cv2.inRange(input_image, lower, upper)
+        
+        return(bacteria_mask, lower)
+    
+    def MorphologicalOperations(bacteria_mask):
+        kernel = np.ones((3,3),np.uint8)
+        opening_bacteria_mask = cv2.morphologyEx(bacteria_mask, cv2.MORPH_OPEN, kernel)
+        numLabels, labeled_image = cv2.connectedComponents(opening_bacteria_mask)
+        labeled_image = np.uint8(labeled_image)
+        morphed_image = cv2.medianBlur(labeled_image,5)
+        
+        return(morphed_image)
+    
+    def FindingContours(input_morphed_image):
+        contours, hierarchy = cv2.findContours(input_morphed_image, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+        return(contours)
+    
+    def GetPixelWiseBacteriaCoordinates(input_morphed_image):
+        bac_pixel_coords = np.argwhere(input_morphed_image)
+        xy_pixelwise_coords = []
+        for p in bac_pixel_coords:
+            pxy = p[0], p[1]
+            xy_pixelwise_coords.append(pxy)
+        
+        return(xy_pixelwise_coords)
+    
+    def NonMaxSuppression(boxes, overlap_thresh):
+        if len(boxes) == 0:
+            return []
+
+        if isinstance(boxes, list):
+            boxes = np.array(boxes)
+        pick = []
+        x1 = boxes[:, 0]
+        y1 = boxes[:, 1]
+        x2 = boxes[:, 0] + boxes[:, 2]
+        y2 = boxes[:, 1] + boxes[:, 3]
+        area = boxes[:, 2] * boxes[:, 3]
+        idxs = np.argsort(y2)
+
+
+        while len(idxs) > 0:
+
+            last = len(idxs) - 1
+            i = idxs[last]
+            pick.append(i)
+
+            xx1 = np.maximum(x1[i], x1[idxs[:last]])
+            yy1 = np.maximum(y1[i], y1[idxs[:last]])
+            xx2 = np.minimum(x2[i], x2[idxs[:last]])
+            yy2 = np.minimum(y2[i], y2[idxs[:last]])
+
+
+            w = np.maximum(0, xx2 - xx1 + 1)
+            h = np.maximum(0, yy2 - yy1 + 1)
+
+
+            overlap = (w * h) / area[idxs[:last]]
+
+
+            idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlap_thresh)[0])))
+
+
+        return boxes[pick]
+    
+    def MakeBoundingBoxWithCentroid(input_image, found_contour,self):
+        centroid = []
+        area_list_um2 = []
+        boxes = []
+        bound_boxed_image = input_image.copy()
+        image_dict = self.data
+        
+        for cnt in found_contour:
+            _,scalex,scaley = image_dict["scaling_zxy"]
+            bac_dia = 0.5 # considering bac size 0.5 um in diameter
+            contour_area = cv2.contourArea(cnt)
+            contour_area_um = (scalex*scaley)*(contour_area)
+            area_bac_um = np.pi*(bac_dia/2)**2
+            
+            if contour_area_um<=area_bac_um: 
+                continue
+            x, y, w, h = cv2.boundingRect(cnt)
+            
+            if w and h >= input_image.shape[0] and input_image.shape[1]:
+                break
+            boxes.append((x,y,w,h))
+       
+        selected_boxes = ReadImage.NonMaxSuppression(boxes, overlap_thresh=0.3)
+            
+        for box in selected_boxes:
+            x,y,w,h = box
+            cv2.rectangle(bound_boxed_image,(x,y),(x+w,y+h),(255,0,0),1)
+            cx = int(x + 0.5 * w)
+            cy = int(y + 0.5 * h)
+            cxy = (cx,cy)
+            area_list_um2.append(contour_area_um)
+            centroid.append(cxy)
+        
+        coord_area_um2 = dict(zip(centroid,area_list_um2))
+        
+        return(bound_boxed_image, centroid, coord_area_um2)
+    
+    def FindBacteriaAndNoBacteria(self,imagelist):
+        bac_image_list = []
+        no_bac_image_list = []
+        no_bac_image_name_list = []
+        bac_pixelwise_xy_coordinates = {}
+        bac_centroid_xy_coordinates = {}
+        bacteria_area = {}
+        for imageno in range(0,len(imagelist)):
+            locals()["xy_Z_"+format(imageno)] = []
+            locals()["p_xy_"+format(imageno)] = []
+            input_image = imagelist[imageno]
+            mask_image, maskvalue_lower = ReadImage.CreateBacteriaMask(input_image)
+            if maskvalue_lower == ():
+                no_bac_image_list.append(input_image)
+                no_bac_image_name_list.append('z'+str(imageno))
+                continue
+            morph_image = ReadImage.MorphologicalOperations(mask_image)
+            contours_avaliable = ReadImage.FindingContours(morph_image)
+            bac_pixel_coordinates = ReadImage.GetPixelWiseBacteriaCoordinates(morph_image)
+            locals()["p_xy_"+format(imageno)].append(bac_pixel_coordinates)
+            bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)]=bac_pixel_coordinates
+            
+            bac_image,bac_centroid_coordinates,bact_area = ReadImage.MakeBoundingBoxWithCentroid(input_image, contours_avaliable,self)
+            if bac_centroid_coordinates == []:
+                no_bac_image_list.append(bac_image)
+                no_bac_image_name_list.append('z'+str(imageno))
+            else:
+                bac_image_list.append(bac_image)
+                locals()["xy_Z_"+format(imageno)].append(bac_centroid_coordinates)
+                bac_centroid_xy_coordinates["xy_Z_"+format(imageno)]= bac_centroid_coordinates
+                bacteria_area["xy_Z_"+format(imageno)]=bact_area
+        no_bac_dict = dict(zip(no_bac_image_name_list, no_bac_image_list))
+        
+        return(bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area)

@@ -32,7 +32,7 @@ def napari_get_reader(path):
 
     # if we know we cannot read the file, we immediately return None.
     if not path.endswith((".czi",".nd2",".lif")):
-        return None
+        return path
 
     # otherwise we return the *function* that can read ``path``.
     # return lambda path: reader_function(path), {'path': path}
