@@ -8,9 +8,12 @@ Replace code below according to your needs.
 """
 import numpy as np
 from typing import TYPE_CHECKING
-from .Module_Class import ReadImage, FindBacteria
+from .Module_Class import ReadImage
+import napari.layers
 # from ._reader.py import napari_get_reader
 from magicgui import magic_factory
+from magicgui.widgets import FileEdit
+from pathlib import Path
 # from qtpy.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 if TYPE_CHECKING:
@@ -37,23 +40,19 @@ if TYPE_CHECKING:
 
 
 @magic_factory
-def Find_Bacteria(img_layer: "napari.layers.Image") -> "napari.types.LayerDataTuple":
+def Find_Bacteria(img_layer: "napari.layers.Image",image_file: Path = FileEdit()) -> "napari.types.LayerDataTuple":
+    print(f"you have selected {img_layer}")
+    image_class_instance = ReadImage(Path)
+    image_list = list(img_layer.data[0,:,:,:])
+    bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area,file = image_class_instance.FindBacteriaAndNoBacteria(image_list)
+    z_value, x_value, y_value = ReadImage.ImageScalingXY
+    bac_data = np.stack(bac_image_list)
+    bac_data = np.expand_dims(bac_data, -1)
+    bac_data = bac_data.transpose(3,0,1,2)
+    bac_layer = (bac_data, {"scale": (z_value,y_value,x_value),"name": f"{img_layer.name}_bac"})
     
-    # try:
-    #     imgfilemetadata,_,_,_ = metadata(path)
-    #     print(f"you have selected {img_layer}")
-    # except:
-    #     imgfilemetadata,_,_ = metadata(path)
-    #     print(f"you have selected {img_layer}")
-    
-    # bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area,file_metadata = FindBacteriaAndNoBacteria(list(img_layer.data[0,:,:,:]), imgfilemetadata)
-    # z_value, x_value, y_value = ReadFile.ImageScalingXY(file_metadata)
-    # bac_data = np.stack(bac_image_list)
-    # bac_data = np.expand_dims(bac_data, -1)
-    # bac_data = bac_data.transpose(3,0,1,2)
-    # bac_layer = (bac_data, {"scale": (z_value,y_value,x_value),"name": f"{img_layer.name}_bac"})
-    pass
     return
+
 
 
 # Uses the `autogenerate: true` flag in the plugin manifest

@@ -301,7 +301,7 @@ class ReadImage:
         
         return(bound_boxed_image, centroid, coord_area_um2)
     
-    def FindBacteriaAndNoBacteria(self,imagelist):
+    def FindBacteriaAndNoBacteria(imagelist):
         bac_image_list = []
         no_bac_image_list = []
         no_bac_image_name_list = []
@@ -323,7 +323,7 @@ class ReadImage:
             locals()["p_xy_"+format(imageno)].append(bac_pixel_coordinates)
             bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)]=bac_pixel_coordinates
             
-            bac_image,bac_centroid_coordinates,bact_area = ReadImage.MakeBoundingBoxWithCentroid(input_image, contours_avaliable,self)
+            bac_image,bac_centroid_coordinates,bact_area = ReadImage.MakeBoundingBoxWithCentroid(input_image, contours_avaliable)
             if bac_centroid_coordinates == []:
                 no_bac_image_list.append(bac_image)
                 no_bac_image_name_list.append('z'+str(imageno))

@@ -6,7 +6,7 @@ import matplotlib as plt
 # from src.findaureus.module_needed import *
 root = Tk()
 root.withdraw()
-from src.findaureus.Module_Class import ReadImage, FindBacteria
+from src.findaureus.Module_Class import ReadImage
 path = filedialog.askopenfilename(title="Select file",filetypes = [("czi, nd2, lif","*.czi;*.nd2;*.lif")])
 
 f = ReadImage(path)
@@ -15,13 +15,6 @@ image_array = list(g["image_array"][0,:,1,:,:])
 g1 = f.FindBacteriaAndNoBacteria(image_array)
 h = f.readnd2()
 i = f.readlif()
-#%%
-image_array = list (g["image_array"][0,:,1,:,:])
-f1 = FindBacteria(image_array)
-g1 = f1.FindBacteriaAndNoBacteria(f.path)
-
-mask = f.CreateBacteriaMask()
-bb = ReadImage()
 #%%
 image_from_channels = []
 try:
