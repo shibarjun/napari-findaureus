@@ -48,15 +48,15 @@ def Find_Bacteria(img_layer: "napari.layers.Image") -> "napari.types.LayerDataTu
     image_list = list(img_layer.data[0,:,:,:])
     _,scalez,scalex ,scaley  = img_layer.scale 
     scalexy = (scalex,scaley)
-    scalezxy = (scalez,scalex,scaley)
+    scalezxy = (scalez,scaley,scalex)
     bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
     # z_value, x_value, y_value = ReadImage.ImageScalingXY
     bac_data = np.stack(bac_image_list)
     bac_data = np.expand_dims(bac_data, -1)
     bac_data = bac_data.transpose(3,0,1,2)
     bac_layer = (bac_data, {"scale": scalezxy,"name": f"{img_layer.name}_bac"})
-    
-    return
+    print("Findbac Done")
+    return [bac_layer]
 
 
 
