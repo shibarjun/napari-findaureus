@@ -3,7 +3,7 @@ from io import BytesIO
 import os
 import napari
 import matplotlib as plt
-# from src.findaureus.module_needed import *
+from src.findaureus._reader.py import napari_get_reader
 root = Tk()
 root.withdraw()
 from src.findaureus.Module_Class import ReadImage
@@ -15,6 +15,8 @@ image_array = list(g["image_array"][0,:,1,:,:])
 g1 = f.FindBacteriaAndNoBacteria(image_array)
 h = f.readnd2()
 i = f.readlif()
+
+rf = 
 #%%
 image_from_channels = []
 try:

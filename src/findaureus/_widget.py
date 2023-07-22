@@ -9,6 +9,7 @@ Replace code below according to your needs.
 import numpy as np
 from typing import TYPE_CHECKING
 from .Module_Class import ReadImage
+# from ReadImage import FindBacteriaAndNoBacteria
 import napari.layers
 # from ._reader.py import napari_get_reader
 from magicgui import magic_factory
@@ -40,16 +41,20 @@ if TYPE_CHECKING:
 
 
 @magic_factory
-def Find_Bacteria(img_layer: "napari.layers.Image",image_file: Path = FileEdit()) -> "napari.types.LayerDataTuple":
+def Find_Bacteria(img_layer: "napari.layers.Image") -> "napari.types.LayerDataTuple":
     print(f"you have selected {img_layer}")
-    image_class_instance = ReadImage(Path)
+    # image_class_instance = ReadImage(Path)
+    
     image_list = list(img_layer.data[0,:,:,:])
-    bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area,file = image_class_instance.FindBacteriaAndNoBacteria(image_list)
-    z_value, x_value, y_value = ReadImage.ImageScalingXY
+    _,scalez,scalex ,scaley  = img_layer.scale 
+    scalexy = (scalex,scaley)
+    scalezxy = (scalez,scalex,scaley)
+    bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
+    # z_value, x_value, y_value = ReadImage.ImageScalingXY
     bac_data = np.stack(bac_image_list)
     bac_data = np.expand_dims(bac_data, -1)
     bac_data = bac_data.transpose(3,0,1,2)
-    bac_layer = (bac_data, {"scale": (z_value,y_value,x_value),"name": f"{img_layer.name}_bac"})
+    bac_layer = (bac_data, {"scale": scalezxy,"name": f"{img_layer.name}_bac"})
     
     return
 

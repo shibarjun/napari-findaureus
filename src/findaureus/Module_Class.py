@@ -125,8 +125,8 @@ class ReadImage:
     
     def __init__(self, path, data=None):
         self.path = path
-        # self.imagelist = image_list
         self.data = data
+        # self.imagelist = image_list
         
     def readczi (self):
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
@@ -264,15 +264,19 @@ class ReadImage:
 
         return boxes[pick]
     
-    def MakeBoundingBoxWithCentroid(input_image, found_contour,self):
+    def MakeBoundingBoxWithCentroid(input_image, found_contour,scalexy):
         centroid = []
         area_list_um2 = []
         boxes = []
         bound_boxed_image = input_image.copy()
-        image_dict = self.data
+        
         
         for cnt in found_contour:
-            _,scalex,scaley = image_dict["scaling_zxy"]
+            # try:
+            #     scalez,scalex,scaley = scalezxy
+            # except:
+            scalex,scaley =scalexy
+                
             bac_dia = 0.5 # considering bac size 0.5 um in diameter
             contour_area = cv2.contourArea(cnt)
             contour_area_um = (scalex*scaley)*(contour_area)
@@ -301,7 +305,7 @@ class ReadImage:
         
         return(bound_boxed_image, centroid, coord_area_um2)
     
-    def FindBacteriaAndNoBacteria(imagelist):
+    def FindBacteriaAndNoBacteria(imagelist, scalexy):
         bac_image_list = []
         no_bac_image_list = []
         no_bac_image_name_list = []
@@ -323,7 +327,7 @@ class ReadImage:
             locals()["p_xy_"+format(imageno)].append(bac_pixel_coordinates)
             bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)]=bac_pixel_coordinates
             
-            bac_image,bac_centroid_coordinates,bact_area = ReadImage.MakeBoundingBoxWithCentroid(input_image, contours_avaliable)
+            bac_image,bac_centroid_coordinates,bact_area = ReadImage.MakeBoundingBoxWithCentroid(input_image, contours_avaliable,scalexy)
             if bac_centroid_coordinates == []:
                 no_bac_image_list.append(bac_image)
                 no_bac_image_name_list.append('z'+str(imageno))

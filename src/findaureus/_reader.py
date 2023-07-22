@@ -72,10 +72,14 @@ def reader_function(path):
             
     data = image_dict["image_array"]
     if image_dict["scaling_zxy"][0] == 0:
-        add_kwargs = {"scale":image_dict["scaling_zxy"][1:] ,"channel_axis": 2,"name":image_dict["channel_name"] }
+        metadata = {"scale":image_dict["scaling_zxy"][1:] ,"channel_axis": 2,"name":image_dict["channel_name"] }
     else:
-        add_kwargs = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
+        metadata = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_name"] }
     # add_kwargs = {}
     layer_type = "image"  # optional, default is "image"
     
-    return [(data, add_kwargs, layer_type)]
+    return [(data, metadata, layer_type)]
+
+# path= r"C:/Users/mandalshibarjun/Documents/171012_bone_IF12_ms59118l_G4_63x_NDD_z-stack60um_tile4x4_highres.czi"
+# nrf = napari_get_reader(path)
+# rf = reader_function(path)
