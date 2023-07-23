@@ -5,9 +5,6 @@ It implements the Reader specification, but your plugin may choose to
 implement multiple readers or even other plugin contributions. see:
 https://napari.org/stable/plugins/guides.html?#readers
 """
-# from .module_needed import *
-
-
 from .Module_Class import ReadImage
 
 def napari_get_reader(path):
@@ -79,7 +76,3 @@ def reader_function(path):
     layer_type = "image"  # optional, default is "image"
     
     return [(data, metadata, layer_type)]
-
-# path= r"C:/Users/mandalshibarjun/Documents/171012_bone_IF12_ms59118l_G4_63x_NDD_z-stack60um_tile4x4_highres.czi"
-# nrf = napari_get_reader(path)
-# rf = reader_function(path)
