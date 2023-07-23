@@ -38,7 +38,12 @@ if TYPE_CHECKING:
 
 #     def _on_click(self):
 #         print("napari has", len(self.viewer.layers), "layers")
-
+def for_napari(image_list):
+    data =np.stack(image_list)
+    data = np.expand_dims(data, -1)
+    data = data.transpose(3,0,1,2)
+    # data = np.expand_dims(data, axis=2)
+    return(data)
 
 @magic_factory
 def Find_Bacteria(img_layer: "napari.layers.Image") -> "napari.types.LayerDataTuple":
@@ -49,12 +54,13 @@ def Find_Bacteria(img_layer: "napari.layers.Image") -> "napari.types.LayerDataTu
     _,scalez,scalex ,scaley  = img_layer.scale 
     scalexy = (scalex,scaley)
     scalezxy = (scalez,scaley,scalex)
-    bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
+    bac_image_list,bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
     # z_value, x_value, y_value = ReadImage.ImageScalingXY
-    bac_data = np.stack(bac_image_list)
-    bac_data = np.expand_dims(bac_data, -1)
-    bac_data = bac_data.transpose(3,0,1,2)
-    bac_layer = (bac_data, {"scale": scalezxy,"name": f"{img_layer.name}_bac"})
+    bac_data_box = for_napari(bac_image_list)
+    bac_data_mask = for_napari(bac_image_list_mask)
+    # bac_data = np.concatenate ((bac_data_box,bac_data_mask), axis = 2)
+    # bac_layer = (bac_data, {"scale": scalezxy,"name": (f"{img_layer.name}_Bbox", f"{img_layer.name}_mask")})
+    bac_layer = (bac_data_mask, {"scale": scalezxy,"name": f"{img_layer.name}_Bbox", "opacity":0.5})
     print("Findbac Done")
     return [bac_layer]
 

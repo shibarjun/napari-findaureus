@@ -2,8 +2,8 @@ from tkinter import Tk, filedialog
 from io import BytesIO
 import os
 import napari
-import matplotlib as plt
-from src.findaureus._reader.py import napari_get_reader
+import matplotlib.pyplot as plt
+# from src.findaureus._reader.py import napari_get_reader
 root = Tk()
 root.withdraw()
 from src.findaureus.Module_Class import ReadImage
@@ -12,11 +12,18 @@ path = filedialog.askopenfilename(title="Select file",filetypes = [("czi, nd2, l
 f = ReadImage(path)
 g = f.readczi()
 image_array = list(g["image_array"][0,:,1,:,:])
-g1 = f.FindBacteriaAndNoBacteria(image_array)
+_,scalex,scaley = g["scaling_zxy"]
+scale = (scalex,scaley)
+g1 = ReadImage.FindBacteriaAndNoBacteria(image_array,scale)
 h = f.readnd2()
 i = f.readlif()
 
-rf = 
+def for_napari(image_list):
+    data =np.stack(image_list)
+    data = np.expand_dims(data, -1)
+    data = data.transpose(3,0,1,2)
+    return(data)
+
 #%%
 image_from_channels = []
 try:

@@ -306,6 +306,7 @@ class ReadImage:
         return(bound_boxed_image, centroid, coord_area_um2)
     
     def FindBacteriaAndNoBacteria(imagelist, scalexy):
+        bac_image_list_mask = []
         bac_image_list = []
         no_bac_image_list = []
         no_bac_image_name_list = []
@@ -322,6 +323,8 @@ class ReadImage:
                 no_bac_image_name_list.append('z'+str(imageno))
                 continue
             morph_image = ReadImage.MorphologicalOperations(mask_image)
+            morph_image[morph_image>0]=255
+            bac_image_list_mask.append(morph_image)
             contours_avaliable = ReadImage.FindingContours(morph_image)
             bac_pixel_coordinates = ReadImage.GetPixelWiseBacteriaCoordinates(morph_image)
             locals()["p_xy_"+format(imageno)].append(bac_pixel_coordinates)
@@ -338,4 +341,4 @@ class ReadImage:
                 bacteria_area["xy_Z_"+format(imageno)]=bact_area
         no_bac_dict = dict(zip(no_bac_image_name_list, no_bac_image_list))
         
-        return(bac_image_list, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area)
+        return(bac_image_list,bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area)
