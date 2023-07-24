@@ -22,6 +22,7 @@ class Find_Bacteria(QWidget):
         self.viewer = napari_viewer
         self.init_ui()
         self.viewer.layers.selection.events.active.connect(self.on_layer_selection_change)
+        self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -37,8 +38,12 @@ class Find_Bacteria(QWidget):
         
         self.label3 = QLabel("No of channel with bacteria: \nNo of channel without bacteria:")
         layout.addWidget(self.label3)
+        
+        self.additional_text_label = QLabel("Additional Text:")
+        layout.addWidget(self.additional_text_label)
 
         self.setLayout(layout)
+        
     #     self.update_layer_combo()
     
     # def get_layer_names(self):
@@ -101,12 +106,13 @@ class Find_Bacteria(QWidget):
             # z_value, x_value, y_value = ReadImage.ImageScalingXY
             # bac_data_box = Find_Bacteria.for_napari(bac_image_list)
             bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
+            # current_z_plane = self.viewer.dims.point[0]
             # bac_data = np.concatenate ((bac_data_box,bac_data_mask), axis = 2)
             # bac_layer = (bac_data, {"scale": scalezxy,"name": (f"{img_layer.name}_Bbox", f"{img_layer.name}_mask")})
             # bac_layer = (bac_data_mask, {"scale": scalezxy,"name": f"{current_layer.name}_Bbox", "opacity":0.5})
             print("Findbac Done")
             self.label1.setText("Image processed and added as a new layer.")
-            self.label3.setText(f"No of channel with bacteria:.{len(bac_image_list)} \nNo of channel without bacteria: {len(no_bac_dict)}")
+            self.label3.setText(f"No of channel with bacteria:.{len(bac_image_list)} \nNo of channel without bacteria: {len(no_bac_dict)} ")
             self.viewer.add_image(bac_data_mask, name=f"{current_layer.name}_Bacteria mask", scale= scalezxy, opacity=0.5, colormap='red')
         else:
             self.label1.setText("No active layer selected.")
@@ -134,6 +140,19 @@ class Find_Bacteria(QWidget):
         except:
             
             self.label2.setText("No active layer selected.")
+            
+    def on_active_layer_change(self, event):
+    # Function to update the Z-plane value when the current step changes
+        active_layer = self.viewer.layers.selection.active
+        if active_layer is not None:
+            # Get the current Z-plane value from the current_step tuple
+            current_z_plane = self.viewer.dims.current_step[1]  # Index 1 corresponds to the Z-plane value
+    
+            # Update the text with the current Z-plane value
+            self.additional_text_label.setText(f"Current Z-plane: {current_z_plane}")
+        else:
+            self.additional_text_label.setText("Current Z-plane: N/A")
+
 
 
 
