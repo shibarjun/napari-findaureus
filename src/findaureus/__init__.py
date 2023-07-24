@@ -7,6 +7,10 @@ from ._reader import napari_get_reader
 from ._sample_data import make_sample_data
 from ._widget import Find_Bacteria
 from ._writer import write_multiple, write_single_image
+from napari_plugin_engine import napari_hook_implementation
+
+def napari_experimental_provide_dock_widget():
+    return Find_Bacteria
 
 __all__ = (
     "napari_get_reader",
