@@ -21,7 +21,8 @@ class Find_Bacteria(QWidget):
         super().__init__()
         self.viewer = napari_viewer
         self.init_ui()
-        
+        # self.current_z_plane_integer = None
+        # self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -46,6 +47,7 @@ class Find_Bacteria(QWidget):
         
         
         self.viewer.layers.selection.events.active.connect(self.on_layer_selection_change)
+        self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
         
     def for_napari(image_list):
         data =np.stack(image_list)
@@ -65,13 +67,16 @@ class Find_Bacteria(QWidget):
             scalezxy = (scalez,scaley,scalex)
             bac_image_list,bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
             bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
+            self.bac_dict = bac_centroid_xy_coordinates
             print("Findbac Done")
             self.welcome_label.setText("Image processed and added as a new layer.")
             self.bacteria_info_label1.setText(f"No. of Channel with Bacteria:.{len(bac_image_list)} \nNo. of Channel without Bacteria: {len(no_bac_dict)} ")
             self.viewer.add_image(bac_data_mask, name=f"{current_layer.name}_Bacteria mask", scale= scalezxy, opacity=0.5, colormap='red')
-            self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
-            current_z_plane_bac = Find_Bacteria.on_active_layer_change(self)
+            # self.on_active_layer_change()
             
+            # z_plane_value = self.current_z_plane_integer
+            # print(z_plane_value)
+            # self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
         else:
             self.welcome_label.setText("No active layer selected.")
         
@@ -100,6 +105,8 @@ class Find_Bacteria(QWidget):
             
     
     def on_active_layer_change(self):
-        current_z_plane = self.viewer.dims.current_step[2]  # Index 2 corresponds to the new layer Z-plane value
+        current_z_plane = int(self.viewer.dims.current_step[2])# Index 2 corresponds to the new layer Z-plane value
+        bacteria_dic = self.bac_dict
+        
         self.bacteria_info_label2.setText(f"No. of Bacterial Region: {current_z_plane}")
-        return(current_z_plane)
+        
