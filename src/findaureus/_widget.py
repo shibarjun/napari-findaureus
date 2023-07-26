@@ -107,6 +107,9 @@ class Find_Bacteria(QWidget):
     def on_active_layer_change(self):
         current_z_plane = int(self.viewer.dims.current_step[2])# Index 2 corresponds to the new layer Z-plane value
         bacteria_dic = self.bac_dict
-        
-        self.bacteria_info_label2.setText(f"No. of Bacterial Region: {current_z_plane}")
+        if "xy_Z_"+format(current_z_plane) in bacteria_dic:
+            bac_found = len(bacteria_dic["xy_Z_"+format(current_z_plane)])
+            self.bacteria_info_label2.setText(f"No. of Bacterial Region: {bac_found}")
+        else:
+            self.bacteria_info_label2.setText("No. of Bacterial Region: N/A")
         
