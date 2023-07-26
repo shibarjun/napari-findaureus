@@ -21,8 +21,7 @@ class Find_Bacteria(QWidget):
         super().__init__()
         self.viewer = napari_viewer
         self.init_ui()
-        # self.current_z_plane_integer = None
-        # self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
+        self.viewer.layers.selection.events.active.connect(self.on_layer_selection_change)
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -45,8 +44,6 @@ class Find_Bacteria(QWidget):
 
         self.setLayout(layout)
         
-        
-        self.viewer.layers.selection.events.active.connect(self.on_layer_selection_change)
         self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
         
     def for_napari(image_list):
@@ -67,16 +64,13 @@ class Find_Bacteria(QWidget):
             scalezxy = (scalez,scaley,scalex)
             bac_image_list,bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
             bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
+            bac_data_bb = Find_Bacteria.for_napari(bac_image_list)
             self.bac_dict = bac_centroid_xy_coordinates
             print("Findbac Done")
             self.welcome_label.setText("Image processed and added as a new layer.")
             self.bacteria_info_label1.setText(f"No. of Channel with Bacteria:.{len(bac_image_list)} \nNo. of Channel without Bacteria: {len(no_bac_dict)} ")
+            self.viewer.add_image(bac_data_bb, name=f"{current_layer.name}_Bounding box", scale= scalezxy, opacity=0.7)
             self.viewer.add_image(bac_data_mask, name=f"{current_layer.name}_Bacteria mask", scale= scalezxy, opacity=0.5, colormap='red')
-            # self.on_active_layer_change()
-            
-            # z_plane_value = self.current_z_plane_integer
-            # print(z_plane_value)
-            # self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
         else:
             self.welcome_label.setText("No active layer selected.")
         
@@ -90,12 +84,9 @@ class Find_Bacteria(QWidget):
         return(layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um,scalex)
     
     def on_layer_selection_change(self, event):
-        # Function to update the text on layer selection change
         active_layer = event.value
-        # current_layer = self.viewer.layers.selection.active
         
         try:
-            # Update the text with information about the selected layer
             layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um,scalex = Find_Bacteria.for_raw_layer(active_layer)
             
             self.Channel_label.setText(f"Channel selected: {layer_name} \nImage height: {layer_height_um} microns ({layer_height_px}) \nImage width: {layer_width_um} microns ({layer_width_px}) \nImage depth: {depth_um} microns \nImage resolution: {round(1/scalex)} pixels per micron")
