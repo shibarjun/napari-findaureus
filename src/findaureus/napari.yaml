@@ -1,5 +1,5 @@
 name: Findaureus
-display_name: Locate bacteria
+display_name: napari_Findaureus
 contributions:
   commands:
     - id: Findaureus.get_reader
