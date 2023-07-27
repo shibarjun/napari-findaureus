@@ -44,8 +44,6 @@ class Find_Bacteria(QWidget):
 
         self.setLayout(layout)
         
-        self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
-        
     def for_napari(image_list):
         data =np.stack(image_list)
         data = np.expand_dims(data, -1)
@@ -69,6 +67,11 @@ class Find_Bacteria(QWidget):
             print("Findbac Done")
             self.welcome_label.setText("Image processed and added as a new layer.")
             self.bacteria_info_label1.setText(f"No. of Channel with Bacteria:.{len(bac_image_list)} \nNo. of Channel without Bacteria: {len(no_bac_dict)} ")
+            if scalez==1:
+                bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"])
+                self.bacteria_info_label2.setText(f"No. of Bacterial Region: {bac_found}")
+            else:
+                self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
             self.viewer.add_image(bac_data_bb, name=f"{current_layer.name}_Bounding box", scale= scalezxy, opacity=0.7)
             self.viewer.add_image(bac_data_mask, name=f"{current_layer.name}_Bacteria mask", scale= scalezxy, opacity=0.5, colormap='red')
         else:
@@ -96,6 +99,7 @@ class Find_Bacteria(QWidget):
             
     
     def on_active_layer_change(self):
+        
         try:
             current_z_plane = int(self.viewer.dims.current_step[2])# Index 2 corresponds to the new layer Z-plane value
         except:
