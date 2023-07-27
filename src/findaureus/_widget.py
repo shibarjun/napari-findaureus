@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     import napari
 
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QFont
 
 class Find_Bacteria(QWidget):
     def __init__(self, napari_viewer):
@@ -26,21 +28,38 @@ class Find_Bacteria(QWidget):
     def init_ui(self):
         layout = QVBoxLayout()
 
-        self.welcome_label = QLabel("Hello, welcome to the widget Findaureus \n Please select the channel!")
-        layout.addWidget(self.welcome_label)
-
-        button = QPushButton("Find bacteria!")
-        button.clicked.connect(self.FindBacteria)
-        layout.addWidget(button)
+        buttonfont = QFont("Arial", 10)
+        labelfont = QFont("Arial", 10)
+        
+        fb_button = QPushButton("Find bacteria!")
+        fb_button.clicked.connect(self.FindBacteria)
+        fb_button.setFont(buttonfont)
+        layout.addWidget(fb_button)
+        
+        reset_button = QPushButton("Reset")
+        reset_button.clicked.connect(self.reset_viewer_and_widget)
+        reset_button.setFont(buttonfont)
+        layout.addWidget(reset_button, alignment=Qt.AlignRight)
         
         self.Channel_label= QLabel("Channel selected: ")
+        self.Channel_label.setFont(labelfont)
         layout.addWidget(self.Channel_label)
         
         self.bacteria_info_label1 = QLabel("")
+        self.bacteria_info_label1.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label1)
         
         self.bacteria_info_label2 = QLabel("")
+        self.bacteria_info_label2.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label2)
+        
+        self.welcome_label = QLabel("Hello!\nWelcome to the Widget Findaureus \nPlease select the channel/layer name")
+        self.welcome_label.setFont(labelfont)
+        layout.addWidget(self.welcome_label)
+        
+        self.image_processed = QLabel("")
+        self.image_processed.setFont(labelfont)
+        layout.addWidget(self.image_processed)
 
         self.setLayout(layout)
         
@@ -65,8 +84,8 @@ class Find_Bacteria(QWidget):
             bac_data_bb = Find_Bacteria.for_napari(bac_image_list)
             self.bac_dict = bac_centroid_xy_coordinates
             print("Findbac Done")
-            self.welcome_label.setText("Image processed and added as a new layer.")
-            self.bacteria_info_label1.setText(f"No. of Channel with Bacteria:.{len(bac_image_list)} \nNo. of Channel without Bacteria: {len(no_bac_dict)} ")
+            self.image_processed.setText("Image processed and added as a new layer.")
+            self.bacteria_info_label1.setText(f"No. of Channel with Bacteria:.{len(bac_centroid_xy_coordinates)} \nNo. of Channel without Bacteria: {len(no_bac_dict)} ")
             if scalez==1:
                 bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"])
                 self.bacteria_info_label2.setText(f"No. of Bacterial Region: {bac_found}")
@@ -110,3 +129,14 @@ class Find_Bacteria(QWidget):
             self.bacteria_info_label2.setText(f"No. of Bacterial Region: {bac_found}")
         else:
             self.bacteria_info_label2.setText("No. of Bacterial Region: N/A")
+    
+    def reset_viewer_and_widget(self):
+        self.viewer.layers.select_all()
+        self.viewer.layers.remove_selected()
+        self.clear_texts_and_labels()
+        
+    def clear_texts_and_labels(self):
+        for i in reversed(range(self.layout().count())):
+            widget = self.layout().itemAt(i).widget()
+            if isinstance(widget, QLabel)and widget is not self.welcome_label:
+                widget.setText('')
