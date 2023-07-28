@@ -53,7 +53,7 @@ class Find_Bacteria(QWidget):
         self.bacteria_info_label2.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label2)
         
-        self.welcome_label = QLabel("Hello!\nWelcome to the Widget Findaureus \nPlease select the channel/layer name")
+        self.welcome_label = QLabel("Step 1: Welcome to Napari-Findaureus Widget \nStep 2: Load Your Fluorescence Image File \n Supported formats are Zeiss (.czi), Leica (.lif), and Nikon (.nd2).\nUse Napari openfile with plugin to load your fluorescence image \nExplore the loaded image using the Napari viewer and find the relevant image information in the widget.\nChoose the Channel to Locate Bacteria \nTo Locate Bacteria in the loaded image and the selected channel press the click Find Bacteria button provided \nThis will provide two new layer in the viewer, one with bacteria mask and other with bounding boxes \n Explore all the features supported by Napari \n Make sure to reset the viewer before importing a new image file, by the Reset button provideded or restarting the viwerer ")
         self.welcome_label.setFont(labelfont)
         layout.addWidget(self.welcome_label)
         
