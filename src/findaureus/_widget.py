@@ -62,7 +62,8 @@ class Find_Bacteria(QWidget):
         self.bacteria_info_label2.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label2)
         
-        
+        self.welcome_label = QLabel("")
+        layout.addWidget(self.welcome_label)
 
         self.setLayout(layout)
         
@@ -141,8 +142,7 @@ class Find_Bacteria(QWidget):
     def clear_texts_and_labels(self):
         for i in reversed(range(self.layout().count())):
             widget = self.layout().itemAt(i).widget()
-            # if isinstance(widget, QLabel)and widget is not self.welcome_label:
-            if isinstance(widget, QLabel):
+            if isinstance(widget, QLabel)and widget is not self.welcome_label:
                 widget.setText('')
                 
     def instruction_button(self):
