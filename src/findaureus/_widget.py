@@ -41,6 +41,10 @@ class Find_Bacteria(QWidget):
         reset_button.setFont(buttonfont)
         layout.addWidget(reset_button, alignment=Qt.AlignRight)
         
+        self.image_processed = QLabel("")
+        self.image_processed.setFont(labelfont)
+        layout.addWidget(self.image_processed)
+        
         self.Channel_label= QLabel("Channel selected: ")
         self.Channel_label.setFont(labelfont)
         layout.addWidget(self.Channel_label)
@@ -53,13 +57,12 @@ class Find_Bacteria(QWidget):
         self.bacteria_info_label2.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label2)
         
-        self.welcome_label = QLabel("Step 1: Welcome to Napari-Findaureus Widget \nStep 2: Load Your Fluorescence Image File \n Supported formats are Zeiss (.czi), Leica (.lif), and Nikon (.nd2).\nUse Napari openfile with plugin to load your fluorescence image \nExplore the loaded image using the Napari viewer and find the relevant image information in the widget.\nChoose the Channel to Locate Bacteria \nTo Locate Bacteria in the loaded image and the selected channel press the click Find Bacteria button provided \nThis will provide two new layer in the viewer, one with bacteria mask and other with bounding boxes \n Explore all the features supported by Napari \n Make sure to reset the viewer before importing a new image file, by the Reset button provideded or restarting the viwerer ")
+        self.welcome_label = QLabel("Welcome to Napari-Findaureus Widget\nStep 1: Load Your Fluorescence Image File\nSupported formats are Zeiss (.czi), Leica (.lif), and Nikon (.nd2)\nUse ""Open with Plugin"" option to load your fluorescence image file.\nStep 2 :Explore the Loaded Image Using the Napari Viewer\nFind the relevant image information in the widget\nStep 3: Choose the Image Channel/Layer to Locate Bacteria\nStep 4: Locate Bacteria\nPress the ""Find Bacteria"" button Provided in the napari-Findaureus widget\nTwo new layers will be added to the viewer:\n- Bacteria mask: Shows the identified bacteria in the selected channel.\n- Bounding boxes: Indicates the bounding boxes around the detected bacteria.\nStep 5: Explore All Napari Features\nTake advantage of all the features supported by Napari to view/analyze your image.\nStep 6: Reset the Viewer\nBefore importing a new image file, reset the viewer to start fresh.\nYou can use the ""Reset"" button provided in the widget, or simply restart the viewer.")
+        
         self.welcome_label.setFont(labelfont)
         layout.addWidget(self.welcome_label)
         
-        self.image_processed = QLabel("")
-        self.image_processed.setFont(labelfont)
-        layout.addWidget(self.image_processed)
+        
 
         self.setLayout(layout)
         
