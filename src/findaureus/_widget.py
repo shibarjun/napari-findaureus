@@ -9,7 +9,6 @@ Replace code below according to your needs.
 from typing import TYPE_CHECKING
 from .Module_Class import *
 import napari.layers
-import webbrowser
 
 if TYPE_CHECKING:
     import napari
@@ -27,7 +26,6 @@ class Find_Bacteria(QWidget):
         self.viewer = napari_viewer
         self.init_ui()
         self.viewer.layers.selection.events.active.connect(self.on_layer_selection_change)
-        self.viewer.window.close(self.close_instruction_window)
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -49,7 +47,7 @@ class Find_Bacteria(QWidget):
         icon_fa = icon_fa.scaled(64, 64)
         fa_widget = QLabel()
         fa_widget.setPixmap(icon_fa)
-                
+
         ##description
         description_widget = QPlainTextEdit()
         description_widget.setReadOnly(True)
@@ -96,7 +94,7 @@ class Find_Bacteria(QWidget):
         self.image_processed.setFont(labelfont)
         layout.addWidget(self.image_processed)
         
-        self.Channel_label= QLabel("Channel selected: ")
+        self.Channel_label= QLabel("")
         self.Channel_label.setFont(labelfont)
         layout.addWidget(self.Channel_label)
         
@@ -124,6 +122,7 @@ class Find_Bacteria(QWidget):
 
     def FindBacteria(self)-> "napari.types.LayerDataTuple":
         current_layer = self.viewer.layers.selection.active
+        self.Channel_label.setText("Channel selected: ")
         if current_layer is not None:
             
             image_list = list(current_layer.data[0,:,:,:])
@@ -212,42 +211,5 @@ class Find_Bacteria(QWidget):
             self.instruction_window.setLayout(layout)
             self.instruction_window.show()
     
-    def close_instruction_window(self):
-        if self.instruction_window and self.instruction_window.isVisible():
-            self.instruction_window.close()
-#     def open_instruction(self):
-#         if not self.instruction_window or not self.instruction_window.isVisible():
-#             self.instruction_window = InstructionWindow()
-#             self.instruction_window.show()
-#             if self.viewer.window.qt_viewer is not None:  # Assuming napari viewer has a window attribute
-#                 self.viewer.window.qt_viewer.canvas.events.close.connect(self.close_instruction_window)
-    
-#     def close_instruction_window(self, event):
-#         if self.instruction_window and self.instruction_window.isVisible():
-#             self.instruction_window.close()
-#             event.accept()
-        
-# class InstructionWindow(QWidget):
-#     def __init__(self):
-#         super().__init__()
-
-#         self.setWindowTitle("Instruction")
-#         self.setGeometry(200, 200, 500, 500)
-
-#         layout = QVBoxLayout()
-#         labelfont = QFont("Arial", 10)
-        
-#         self.title_in = QLabel("<h1>Instruction</h1>")
-#         self.title_in.setStyleSheet("font-weight: bold;")
-        
-#         self.label = QLabel("Welcome to Napari-Findaureus Widget\n\nStep 1: Load Your Fluorescence Image File\nSupported formats are Zeiss (.czi), Leica (.lif), and Nikon (.nd2)\nUse ""Open with Plugin"" option to load your fluorescence image file.\n\nStep 2 :Explore the Loaded Image Using the Napari Viewer\nFind the relevant image information in the widget\n\nStep 3: Choose the Image Channel/Layer to Locate Bacteria\n\nStep 4: Locate Bacteria\nPress the ""Find Bacteria"" button Provided in the napari-Findaureus widget\nTwo new layers will be added to the viewer:\n- Bacteria mask: Shows the identified bacteria in the selected channel.\n- Bounding boxes: Indicates the bounding boxes around the detected bacteria.\n\nStep 5: Explore All Napari Features\nTake advantage of all the features supported by Napari to view/analyze your image.\n\nStep 6: Reset the Viewer\nBefore importing a new image file, reset the viewer to start fresh.\nYou can use the ""Reset"" button provided in the widget, or simply restart the viewer.", self)
-#         self.label.setFont(labelfont)
-#         layout.addWidget(self.title_in)
-#         layout.addWidget(self.label)
-
-#         self.setLayout(layout)
-    
-#     def closeEvent(self, event):
-#         # Ensure the instruction window is closed
-#         self.hide()
-#         event.ignore()
+    def close_instruction_window(self, event):
+        self.instruction_window.close()
