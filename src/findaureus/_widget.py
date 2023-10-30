@@ -51,7 +51,7 @@ class Find_Bacteria(QWidget):
         ##description
         description_widget = QPlainTextEdit()
         description_widget.setReadOnly(True)
-        description_widget.setPlainText("Find bacteria across confocal laser scanning microscopy (CLSM) obtained infected bone tissue images.")
+        description_widget.setPlainText("Find bacteria in confocal laser scanning microscopy (CLSM) obtained infected bone tissue images.")
         description_widget.setFixedSize(256, 50)
         
         ##conclude the content
