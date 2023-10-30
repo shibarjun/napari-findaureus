@@ -13,7 +13,7 @@ import napari.layers
 if TYPE_CHECKING:
     import napari
 
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout, QTextEdit
 from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QFont, QPixmap, QCursor, QDesktopServices
 
@@ -117,7 +117,7 @@ class Find_Bacteria(QWidget):
         layout.addWidget(self.welcome_label)
 
         self.setLayout(layout)
-        # self.instruction_window = None
+        self.instruction_window = None
         
     def for_napari(image_list):
         data =np.stack(image_list)
@@ -202,20 +202,40 @@ class Find_Bacteria(QWidget):
         if not self.instruction_window or not self.instruction_window.isVisible():
             self.instruction_window = QWidget()
             self.instruction_window.setWindowTitle("Instruction")
-            self.instruction_window.setGeometry(200, 200, 500, 500)
 
             layout = QVBoxLayout()
-            labelfont = QFont("Arial", 10)
-        
+            
             title_in = QLabel("<h1>Instruction</h1>")
             title_in.setStyleSheet("font-weight: bold;")
-        
-            label = QLabel("Welcome to Napari-Findaureus Widget\n\nStep 1: Load Your Fluorescence Image File\nSupported formats are Zeiss (.czi), Leica (.lif), and Nikon (.nd2)\nUse ""Open with Plugin"" option to load your fluorescence image file.\n\nStep 2 :Explore the Loaded Image Using the Napari Viewer\nFind the relevant image information in the widget\n\nStep 3: Choose the Image Channel/Layer to Locate Bacteria\n\nStep 4: Locate Bacteria\nPress the ""Find Bacteria"" button Provided in the napari-Findaureus widget\nTwo new layers will be added to the viewer:\n- Bacteria mask: Shows the identified bacteria in the selected channel.\n- Bounding boxes: Indicates the bounding boxes around the detected bacteria.\n\nStep 5: Explore All Napari Features\nTake advantage of all the features supported by Napari to view/analyze your image.\n\nStep 6: Reset the Viewer\nBefore importing a new image file, reset the viewer to start fresh.\nYou can use the ""Reset"" button provided in the widget, or simply restart the viewer.", self)
-            label.setFont(labelfont)
             layout.addWidget(title_in)
+
+            label = QTextEdit()
+            label.setPlainText(
+                "Welcome to napari-findaureus Widget\n\n"
+                "Step 1: Load Your Fluorescence Image File\n"
+                "Supported formats: Zeiss (.czi), Leica (.lif), and Nikon (.nd2)\n"
+                "Use the 'Open with Plugin' option to load your fluorescence image file.\n\n"
+                "Step 2: Explore the Loaded Image Using the Napari Viewer\n"
+                "Find the relevant image information in the widget.\n\n"
+                "Step 3: Choose the Image Channel/Layer to Locate Bacteria\n\n"
+                "Step 4: Locate Bacteria\n"
+                "Press the 'Find Bacteria' button provided in the napari-findaureus widget.\n"
+                "Two new layers will be added to the viewer:\n"
+                "- Bacteria mask: Highlights the identified bacteria in the selected channel.\n"
+                "- Bounding boxes: Places bounding boxes around the detected bacteria.\n\n"
+                "Step 5: Explore All Napari Features\n"
+                "Utilize all the features supported by Napari to view and analyze your image.\n\n"
+                "Step 6: Reset the Viewer\n"
+                "Before importing a new image file, reset the viewer to avoid overlapping of image layers.\n"
+                "You can use the reset viewer or simply use the 'Reset' button provided in the widget."
+            )
+
+            label.setFontPointSize(30)
+
             layout.addWidget(label)
 
             self.instruction_window.setLayout(layout)
+            self.instruction_window.adjustSize()
             self.instruction_window.show()
     
     def close_instruction_window(self, event):

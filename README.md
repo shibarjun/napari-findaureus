@@ -23,9 +23,9 @@ https://napari.org/stable/plugins/index.html
 
 ## Installation
 
-You can install `Findaureus` via [pip]:
+You can install `napari-findaureus` via [pip]:
 
-    pip install Findaureus
+    pip install napari-findaureus
 
 
 
