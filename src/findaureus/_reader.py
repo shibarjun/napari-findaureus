@@ -12,8 +12,6 @@ import napari.layers
 PathLike = str
 PathOrPaths = Union[PathLike, Sequence[PathLike]]
 
-
-
 def napari_get_reader(path: PathOrPaths):
     if isinstance(path, str) and path.endswith((".czi",".nd2",".lif")):
         return reader_function
