@@ -5,7 +5,7 @@ It implements the Reader specification, but your plugin may choose to
 implement multiple readers or even other plugin contributions. see:
 https://napari.org/stable/plugins/guides.html?#readers
 """
-from .Module_Class import ReadImage
+from .Module_Class import *
 from typing import Sequence, Union
 import napari.layers
 

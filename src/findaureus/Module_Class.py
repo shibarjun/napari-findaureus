@@ -1,4 +1,3 @@
-#import packages
 import numpy as np
 from aicsimageio import AICSImage
 import czifile as cf
