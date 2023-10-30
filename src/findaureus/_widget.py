@@ -6,7 +6,6 @@ see: https://napari.org/stable/plugins/guides.html?#widgets
 
 Replace code below according to your needs.
 """
-# import numpy as np
 from typing import TYPE_CHECKING
 from .Module_Class import *
 import napari.layers
