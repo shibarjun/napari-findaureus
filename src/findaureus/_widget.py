@@ -80,37 +80,44 @@ class Find_Bacteria(QWidget):
         content_layout_2.addWidget(instruction_button)
         layout.addWidget(content_widget_2, alignment=Qt.AlignRight)
         
+        #button to find bacteria
         fb_button = QPushButton("Find bacteria!")
         fb_button.clicked.connect(self.FindBacteria)
         fb_button.setFont(buttonfont)
         layout.addWidget(fb_button)
         
+        #button to find rest the lasyer and avaliable image informations
         reset_button = QPushButton("Reset")
         reset_button.clicked.connect(self.reset_viewer_and_widget)
         reset_button.setFont(buttonfont)
         layout.addWidget(reset_button, alignment=Qt.AlignRight)
         
+        #text about processed information
         self.image_processed = QLabel("")
         self.image_processed.setFont(labelfont)
         layout.addWidget(self.image_processed)
         
+        #text about channel selected
         self.Channel_label= QLabel("")
         self.Channel_label.setFont(labelfont)
         layout.addWidget(self.Channel_label)
         
+        #text about bacteria
         self.bacteria_info_label1 = QLabel("")
         self.bacteria_info_label1.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label1)
         
+        #text about bacteria
         self.bacteria_info_label2 = QLabel("")
         self.bacteria_info_label2.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label2)
         
+        #text about layer selcted
         self.welcome_label = QLabel("")
         layout.addWidget(self.welcome_label)
 
         self.setLayout(layout)
-        self.instruction_window = None
+        # self.instruction_window = None
         
     def for_napari(image_list):
         data =np.stack(image_list)
