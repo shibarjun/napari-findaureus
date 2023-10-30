@@ -6,17 +6,19 @@ see: https://napari.org/stable/plugins/guides.html?#widgets
 
 Replace code below according to your needs.
 """
-import numpy as np
 from typing import TYPE_CHECKING
-from .Module_Class import ReadImage
+from .Module_Class import *
 import napari.layers
 
 if TYPE_CHECKING:
     import napari
 
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QFont
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout
+from qtpy.QtCore import Qt, QUrl
+from qtpy.QtGui import QFont, QPixmap, QCursor, QDesktopServices
+
+def open_url():
+    QDesktopServices.openUrl(QUrl("https://github.com/shibarjun/napari_findaureus-v1"))
 
 class Find_Bacteria(QWidget):
     def __init__(self, napari_viewer):
@@ -31,37 +33,91 @@ class Find_Bacteria(QWidget):
         buttonfont = QFont("Arial", 10)
         labelfont = QFont("Arial", 10)
         
+        # title
+        self.title = QLabel("<h1>Findaureus</h1>")
+        self.title.setStyleSheet("font-weight: bold;")
+        layout.addWidget(self.title, alignment=Qt.AlignCenter)
+        
+        #banner content
+        content_widget_1 = QWidget()
+        content_layout_1 = QHBoxLayout(content_widget_1)
+        
+        ##findauresu icon
+        icon_fa = QPixmap("src/findaureus/resources/application_icon.png")
+        icon_fa = icon_fa.scaled(64, 64)
+        fa_widget = QLabel()
+        fa_widget.setPixmap(icon_fa)
+
+        ##description
+        description_widget = QPlainTextEdit()
+        description_widget.setReadOnly(True)
+        description_widget.setPlainText("Find bacteria in confocal laser scanning microscopy (CLSM) obtained infected bone tissue images.")
+        description_widget.setFixedSize(256, 50)
+        
+        ##conclude the content
+        content_layout_1.addWidget(fa_widget)
+        content_layout_1.addWidget(description_widget)
+        layout.addWidget(content_widget_1, alignment=Qt.AlignCenter)
+        
+        #github and instruction content
+        content_widget_2 = QWidget()
+        content_layout_2 = QHBoxLayout(content_widget_2)
+        ##github icon
+        icon_gh = QPixmap("src/findaureus/resources/GitHub-Mark-Light-32px.png")
+        icon_gh = icon_gh.scaled(32,32)
+        gh_widget = QLabel()
+        gh_widget.setPixmap(icon_gh)
+        gh_widget.setCursor(QCursor(Qt.PointingHandCursor))
+        gh_widget.mouseReleaseEvent = lambda event: open_url()
+        
+        ##instruction
+        instruction_button = QPushButton("Instruction")
+        instruction_button.clicked.connect(self.open_instruction)
+        instruction_button.setFont(buttonfont)
+        
+        ##conclude the content
+        content_layout_2.addWidget(gh_widget)
+        content_layout_2.addWidget(instruction_button)
+        layout.addWidget(content_widget_2, alignment=Qt.AlignRight)
+        
+        #button to find bacteria
         fb_button = QPushButton("Find bacteria!")
         fb_button.clicked.connect(self.FindBacteria)
         fb_button.setFont(buttonfont)
         layout.addWidget(fb_button)
         
+        #button to find rest the lasyer and avaliable image informations
         reset_button = QPushButton("Reset")
         reset_button.clicked.connect(self.reset_viewer_and_widget)
         reset_button.setFont(buttonfont)
         layout.addWidget(reset_button, alignment=Qt.AlignRight)
         
-        self.Channel_label= QLabel("Channel selected: ")
+        #text about processed information
+        self.image_processed = QLabel("")
+        self.image_processed.setFont(labelfont)
+        layout.addWidget(self.image_processed)
+        
+        #text about channel selected
+        self.Channel_label= QLabel("")
         self.Channel_label.setFont(labelfont)
         layout.addWidget(self.Channel_label)
         
+        #text about bacteria
         self.bacteria_info_label1 = QLabel("")
         self.bacteria_info_label1.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label1)
         
+        #text about bacteria
         self.bacteria_info_label2 = QLabel("")
         self.bacteria_info_label2.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label2)
         
-        self.welcome_label = QLabel("Hello!\nWelcome to the Widget Findaureus \nPlease select the channel/layer name")
-        self.welcome_label.setFont(labelfont)
+        #text about layer selcted
+        self.welcome_label = QLabel("")
         layout.addWidget(self.welcome_label)
-        
-        self.image_processed = QLabel("")
-        self.image_processed.setFont(labelfont)
-        layout.addWidget(self.image_processed)
 
         self.setLayout(layout)
+        # self.instruction_window = None
         
     def for_napari(image_list):
         data =np.stack(image_list)
@@ -73,6 +129,7 @@ class Find_Bacteria(QWidget):
 
     def FindBacteria(self)-> "napari.types.LayerDataTuple":
         current_layer = self.viewer.layers.selection.active
+        self.Channel_label.setText("Channel selected: ")
         if current_layer is not None:
             
             image_list = list(current_layer.data[0,:,:,:])
@@ -138,5 +195,28 @@ class Find_Bacteria(QWidget):
     def clear_texts_and_labels(self):
         for i in reversed(range(self.layout().count())):
             widget = self.layout().itemAt(i).widget()
-            if isinstance(widget, QLabel)and widget is not self.welcome_label:
+            if isinstance(widget, QLabel)and widget is not self.welcome_label and widget is not self.title:
                 widget.setText('')
+        
+    def open_instruction(self):
+        if not self.instruction_window or not self.instruction_window.isVisible():
+            self.instruction_window = QWidget()
+            self.instruction_window.setWindowTitle("Instruction")
+            self.instruction_window.setGeometry(200, 200, 500, 500)
+
+            layout = QVBoxLayout()
+            labelfont = QFont("Arial", 10)
+        
+            title_in = QLabel("<h1>Instruction</h1>")
+            title_in.setStyleSheet("font-weight: bold;")
+        
+            label = QLabel("Welcome to Napari-Findaureus Widget\n\nStep 1: Load Your Fluorescence Image File\nSupported formats are Zeiss (.czi), Leica (.lif), and Nikon (.nd2)\nUse ""Open with Plugin"" option to load your fluorescence image file.\n\nStep 2 :Explore the Loaded Image Using the Napari Viewer\nFind the relevant image information in the widget\n\nStep 3: Choose the Image Channel/Layer to Locate Bacteria\n\nStep 4: Locate Bacteria\nPress the ""Find Bacteria"" button Provided in the napari-Findaureus widget\nTwo new layers will be added to the viewer:\n- Bacteria mask: Shows the identified bacteria in the selected channel.\n- Bounding boxes: Indicates the bounding boxes around the detected bacteria.\n\nStep 5: Explore All Napari Features\nTake advantage of all the features supported by Napari to view/analyze your image.\n\nStep 6: Reset the Viewer\nBefore importing a new image file, reset the viewer to start fresh.\nYou can use the ""Reset"" button provided in the widget, or simply restart the viewer.", self)
+            label.setFont(labelfont)
+            layout.addWidget(title_in)
+            layout.addWidget(label)
+
+            self.instruction_window.setLayout(layout)
+            self.instruction_window.show()
+    
+    def close_instruction_window(self, event):
+        self.instruction_window.close()
