@@ -1,17 +1,17 @@
-name: Findaureus
+name: napari-findaureus
 display_name: napari-findaureus
 contributions:
   commands:
-    - id: Findaureus.get_reader
+    - id: napari-findaureus.get_reader
       python_name: findaureus._reader:napari_get_reader
       title: Open data to locate bacteria
-    - id: Findaureus.make_magic_widget
+    - id: napari-findaureus.make_magic_widget
       python_name: findaureus._widget:Find_Bacteria
       title: napari-findaureus
   readers:
-    - command: Findaureus.get_reader
+    - command: napari-findaureus.get_reader
       accepts_directories: false
       filename_patterns: ['*.czi','*.nd2','*.lif']
   widgets:
-    - command: Findaureus.make_magic_widget
+    - command: napari-findaureus.make_magic_widget
       display_name: napari-findaureus
