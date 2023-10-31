@@ -1,11 +1,11 @@
-# Findaureus
+# napari-findaureus
 
-[![License MIT](https://img.shields.io/pypi/l/Findaureus.svg?color=green)](https://github.com/githubuser/Findaureus/raw/main/LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/Findaureus.svg?color=green)](https://pypi.org/project/Findaureus)
-[![Python Version](https://img.shields.io/pypi/pyversions/Findaureus.svg?color=green)](https://python.org)
-[![tests](https://github.com/githubuser/Findaureus/workflows/tests/badge.svg)](https://github.com/githubuser/Findaureus/actions)
-[![codecov](https://codecov.io/gh/githubuser/Findaureus/branch/main/graph/badge.svg)](https://codecov.io/gh/githubuser/Findaureus)
-[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/Findaureus)](https://napari-hub.org/plugins/Findaureus)
+[![License MIT](https://img.shields.io/pypi/l/napari-findaureus.svg?color=green)](https://github.com/githubuser/napari-findaureus/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/napari-findaureus.svg?color=green)](https://pypi.org/project/napari-findaureus)
+[![Python Version](https://img.shields.io/pypi/pyversions/napari-findaureus.svg?color=green)](https://python.org)
+[![tests](https://github.com/githubuser/napari-findaureus/workflows/tests/badge.svg)](https://github.com/githubuser/napari-findaureus/actions)
+[![codecov](https://codecov.io/gh/githubuser/napari-findaureus/branch/main/graph/badge.svg)](https://codecov.io/gh/githubuser/napari-findaureus)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-findaureus)](https://napari-hub.org/plugins/napari-findaureus)
 
 Locate bacteria in CLSM obtained infected bone tissue images
 
@@ -38,7 +38,7 @@ the coverage at least stays the same before you submit a pull request.
 ## License
 
 Distributed under the terms of the [MIT] license,
-"Findaureus" is free and open source software
+"napari-findaureus" is free and open source software
 
 ## Issues
 
