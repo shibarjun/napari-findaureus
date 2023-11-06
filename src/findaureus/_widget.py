@@ -13,7 +13,7 @@ import napari.layers
 if TYPE_CHECKING:
     import napari
 
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout, QTextEdit
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout, QTextEdit, QDialog
 from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QFont, QPixmap, QCursor, QDesktopServices
 
@@ -200,7 +200,7 @@ class Find_Bacteria(QWidget):
         
     def open_instruction(self):
         if not self.instruction_window or not self.instruction_window.isVisible():
-            self.instruction_window = QWidget()
+            self.instruction_window = QDialog(parent=self)
             self.instruction_window.setWindowTitle("Instruction")
 
             layout = QVBoxLayout()
@@ -238,5 +238,7 @@ class Find_Bacteria(QWidget):
             self.instruction_window.adjustSize()
             self.instruction_window.show()
     
-    def close_instruction_window(self, event):
-        self.instruction_window.close()
+    def closeEvent(self, event):
+        if self.instruction_window:
+            self.instruction_window.close()
+        super().closeEvent(event)
