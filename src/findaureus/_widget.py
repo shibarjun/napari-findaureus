@@ -201,6 +201,7 @@ class Find_Bacteria(QWidget):
     def open_instruction(self):
         if not self.instruction_window or not self.instruction_window.isVisible():
             self.instruction_window = QDialog()
+            self.instruction_window = QDialog(parent=self)
             self.instruction_window.setWindowTitle("Instruction")
 
             layout = QVBoxLayout()
@@ -240,3 +241,6 @@ class Find_Bacteria(QWidget):
     
     def closeEvent(self, event):
         self.instruction_window.close()
+        if self.instruction_window:
+            self.instruction_window.close()
+        super().closeEvent(event)
