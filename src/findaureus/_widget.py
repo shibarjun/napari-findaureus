@@ -112,10 +112,6 @@ class Find_Bacteria(QWidget):
         self.bacteria_info_label2 = QLabel("")
         self.bacteria_info_label2.setFont(labelfont)
         layout.addWidget(self.bacteria_info_label2)
-        
-        #text about layer selcted
-        self.welcome_label = QLabel("")
-        layout.addWidget(self.welcome_label)
 
         self.setLayout(layout)
         self.instruction_window = None
@@ -150,9 +146,12 @@ class Find_Bacteria(QWidget):
             else:
                 self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
             self.viewer.add_image(bac_data_bb, name=f"{current_layer.name}_Bounding box", scale= scalezxy, opacity=0.7)
-            self.viewer.add_image(bac_data_mask, name=f"{current_layer.name}_Bacteria mask", scale= scalezxy, opacity=0.5, colormap='red')
-        else:
-            self.welcome_label.setText("No active layer selected.")
+            self.viewer.add_image(bac_data_mask, name=f"{current_layer.name}_Bacteria mask", scale= scalezxy, opacity=0.5, colormap='red', visible=False)
+
+    def reset_viewer_and_widget(self):
+        self.viewer.layers.select_all()
+        self.viewer.layers.remove_selected()
+        self.clear_texts_and_labels()
         
     def for_raw_layer(active_layer):
         
@@ -171,8 +170,7 @@ class Find_Bacteria(QWidget):
             
             self.Channel_label.setText(f"Channel selected: {layer_name} \nImage height: {layer_height_um} microns ({layer_height_px}) \nImage width: {layer_width_um} microns ({layer_width_px}) \nImage depth: {depth_um} microns \nImage resolution: {round(1/scalex)} pixels per micron")
         except:
-            
-            self.Channel_label.setText("No active layer selected.")
+            pass
             
     
     def on_active_layer_change(self):
@@ -188,15 +186,11 @@ class Find_Bacteria(QWidget):
         else:
             self.bacteria_info_label2.setText("No. of Bacterial Region: N/A")
     
-    def reset_viewer_and_widget(self):
-        self.viewer.layers.select_all()
-        self.viewer.layers.remove_selected()
-        self.clear_texts_and_labels()
         
     def clear_texts_and_labels(self):
         for i in reversed(range(self.layout().count())):
             widget = self.layout().itemAt(i).widget()
-            if isinstance(widget, QLabel)and widget is not self.welcome_label and widget is not self.title:
+            if isinstance(widget, QLabel)and widget is not self.title:
                 widget.setText('')
         
     def open_instruction(self):
@@ -229,8 +223,8 @@ class Find_Bacteria(QWidget):
                 "Utilize all the features supported by Napari to view and analyze your image.\n\n"
                 "Step 6: Reset the Viewer\n"
                 "Before importing a new image file, reset the viewer to avoid overlapping of image layers.\n"
-                "You can use the reset viewer or simply use the 'Reset' button provided in the widget."
-            )
+                "Use the 'Reset' button provided in the widget."
+                )
 
             label.setFontPointSize(30)
 
