@@ -62,6 +62,7 @@ class Find_Bacteria(QWidget):
         #github and instruction content
         content_widget_2 = QWidget()
         content_layout_2 = QHBoxLayout(content_widget_2)
+
         ##github icon
         icon_gh = QPixmap("src/findaureus/resources/GitHub-Mark-Light-32px.png")
         icon_gh = icon_gh.scaled(32,32)
