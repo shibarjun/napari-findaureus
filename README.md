@@ -7,33 +7,32 @@
 [![codecov](https://codecov.io/gh/githubuser/napari-findaureus/branch/main/graph/badge.svg)](https://codecov.io/gh/githubuser/napari-findaureus)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-findaureus)](https://napari-hub.org/plugins/napari-findaureus)
 
-Locate bacteria in CLSM obtained infected bone tissue images
+"Findaureus" is now available for everyone to use in napari.
+
+Findaureus is a tool designed to identify bacteria in infected bone tissue images obtained via Confocal Laser Scanning Microscopy (CLSM). This tool can be accessed independently here. Recently, Findaureus has been integrated as a plugin for napari. In addition to its bacteria-locating algorithm, the napari viewer provides improved visualization features, in 2D and 3D perspectives.
 
 ----------------------------------
-
-This [napari] plugin was generated with [Cookiecutter] using [@napari]'s [cookiecutter-napari-plugin] template.
-
-<!--
-Don't miss the full getting started guide to set up your new package:
-https://github.com/napari/cookiecutter-napari-plugin#getting-started
-
-and review the napari docs for plugin developers:
-https://napari.org/stable/plugins/index.html
--->
-
 ## Installation
-
-You can install `napari-findaureus` via [pip]:
-
-    pip install napari-findaureus
-
-
-
+### Windows/Linux
+If you don’t have conda installed, you can get miniconda or Anaconda from their websites.
+1. Open your command line tool and run these commands to create and activate a conda environment:
+```
+conda create -n napari-findaureus python=3.9
+conda activate napari-findaureus
+```
+2. Install napari and napari-findaureus with this command:
+```
+pip install "napari[all]" napari-findaureus
+```
+### Start napari-findaureus
+Launch napari from the terminal while the napari-findaureus environment is running.
+```
+napari
+```
+To launch the napari plugin, go to “Plugins” and select “napari-findaureus”.
+## Quick demo
 
 ## Contributing
-
-Contributions are very welcome. Tests can be run with [tox], please ensure
-the coverage at least stays the same before you submit a pull request.
 
 ## License
 
