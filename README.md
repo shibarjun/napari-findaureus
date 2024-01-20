@@ -1,8 +1,9 @@
 # napari-findaureus
 
-
 "Findaureus" is now available to use in napari.
-
+<p align="center">
+<img src = https://github.com/shibarjun/napari-findaureus/blob/main/docs/napari-findaureus.png />
+</p>
 Findaureus is a tool designed to identify bacteria in infected bone tissue images obtained via Confocal Laser Scanning Microscopy (CLSM). This tool can be accessed independently [here](https://github.com/shibarjun/Findaureus). Recently, Findaureus has been integrated as a plugin for napari. In addition to its bacteria-locating algorithm, the napari viewer provides improved visualization features, in 2D and 3D perspectives.
 
 ----------------------------------
@@ -18,7 +19,17 @@ conda activate napari-findaureus
 ```
 pip install "napari[all]" napari-findaureus
 ```
-### Start napari-findaureus
+### macOS
+1. Create an environment with napari and pyqt5
+```
+conda create -n napari-findaureus -c conda-forge python=3.9 pyqt imagecodecs napari
+```
+2. Install the napari-findaureus plugin
+```
+pip install napari-findaureus
+```
+
+## Start napari-findaureus
 Launch napari from the terminal while the napari-findaureus environment is running.
 ```
 napari
@@ -35,7 +46,13 @@ To use the `napari-findaureus` plugin, please follow the steps below:
 6. The widget will display the image-related data and bacteria count. If you need additional help, click on the `Instruction` button in the widget.
 7. Before you proceed to another image, reset the viewer by clicking on the `Reset` button provided in the widget.
 
+<p align="center">
+<img src = https://github.com/shibarjun/napari-findaureus/blob/main/docs/napari-findaureus.gif />
+</p>
+
 Enjoy exploring the fascinating world of bacteria in mouse bone tissues!
+
+----------------------------------
 ## Contributing
 We welcome and appreciate all contributions to the `napari-findaureus` project! Whether it's reporting bugs, suggesting new features, improving documentation, or writing code, your involvement is greatly valued.
 When using our dataset or referring to our work, we kindly ask that you acknowledge the dataset and cite the related articles. This helps support our work and allows us to continue improving this project.
@@ -44,7 +61,7 @@ Thank you for your interest and support!
 ## Citation
 ### Findaureus
 
-### Dataset
+### Infected mouse bone tissue
 Mandal S, Tannert A, Ebert C, Guliev RR, Ozegowski Y, Carvalho L, Wildemann B, Eiserloh S, Coldewey SM, Löffler B, Bastião Silva L, Hoerr V, Tuchscherr L, Neugebauer U. [Insights into S. aureus-Induced Bone Deformation in a Mouse Model of Chronic Osteomyelitis Using Fluorescence and Raman Imaging. International Journal of Molecular Sciences](https://www.mdpi.com/1422-0067/24/11/9762) 2023; 24(11):9762.
 
 ## Acknowledgements
