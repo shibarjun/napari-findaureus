@@ -145,6 +145,15 @@ class ReadImage:
         self.data=data
         return(data)
     
+    def readczi_mosaic (self):
+        data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
+        cziobject = AICSImage(self.path)
+        img_reader = cziobject.reader
+        img_metadata = cziobject.metadata
+        img_metadata_dict = ReadImage.ElementToDict(img_metadata)
+        numpy_array = img_reader.data
+        
+    
     
     def readnd2 (self):
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
