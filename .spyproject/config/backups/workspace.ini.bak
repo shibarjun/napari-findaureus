@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['src\\findaureus\\napari.yaml', 'src\\findaureus\\_widget.py', 'setup.cfg', 'src\\findaureus\\_reader.py', 'README.md', 'src\\findaureus\\__init__.py']
+recent_files = ['src\\findaureus\\napari.yaml']
 
 [main]
 version = 0.2.0
