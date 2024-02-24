@@ -3,6 +3,7 @@ from aicsimageio import AICSImage
 import czifile as cf
 import webcolors
 import cv2
+import xmltodict
 
 class ReadImage:
     
@@ -17,23 +18,30 @@ class ReadImage:
         
         return colours_name[min(colours_name.keys())]
     
-    def ElementToDict(element):
-        dictionary = {element.tag: {}}
-        if element.attrib:
-            dictionary[element.tag].update({'@' + key: value for key, value in element.attrib.items()})
-        if element.text:
-            dictionary[element.tag]['#text'] = element.text.strip()
-        for child_element in element:
-            child_dictionary = ReadImage.ElementToDict(child_element)
-            if child_element.tag in dictionary[element.tag]:
-                if isinstance(dictionary[element.tag][child_element.tag], list):
-                    dictionary[element.tag][child_element.tag].append(child_dictionary[child_element.tag])
-                else:
-                    dictionary[element.tag][child_element.tag] = [dictionary[element.tag][child_element.tag], child_dictionary[child_element.tag]]
+    def ElementToDict(t):
+        d = {t.tag: {} if t.attrib else None}
+        children = list(t)
+        if children:
+            dd = {}
+            for dc in map(ReadImage.ElementToDict, children):
+                for k, v in dc.items():
+                    if k not in dd:
+                        dd[k] = v
+                    else:
+                        if not isinstance(dd[k], list):
+                            dd[k] = [dd[k]]
+                        dd[k].append(v)
+            d = {t.tag: dd}
+        if t.attrib:
+            d[t.tag].update(('@' + k, v) for k, v in t.attrib.items())
+        if t.text:
+            text = t.text.strip()
+            if children or t.attrib:
+                if text:
+                  d[t.tag]['#text'] = text
             else:
-                dictionary[element.tag].update(child_dictionary)
-
-        return dictionary
+                d[t.tag] = text
+        return d
     
     def ImageSize_czi (file_metadatadict_for_imagesize):
         image_size_x = int(file_metadatadict_for_imagesize['ImageDocument']['Metadata']['Information']['Image']['SizeX'])
@@ -41,14 +49,17 @@ class ReadImage:
         return(image_size_x, image_size_y)
     
     def ChannelsAvaliable_czi(file_metadatadict_for_channel):
+        channel_names = []
         channel_colours = []
         channel_colours_name = []
         channel_size = int(file_metadatadict_for_channel['ImageDocument']['Metadata']['Information']['Image']['SizeC'])
         
         if channel_size == 1:
+            channel_names.append(file_metadatadict_for_channel['ImageDocument']['Metadata']['DisplaySetting']['Channels']['Channel']['Name'])
             channel_colours.append(file_metadatadict_for_channel['ImageDocument']['Metadata']['DisplaySetting']['Channels']['Channel']['Color'])
         if channel_size > 1:
             for ch in range(channel_size):
+                channel_names.append(file_metadatadict_for_channel['ImageDocument']['Metadata']['DisplaySetting']['Channels']['Channel'][ch]['Name'])
                 channel_colours.append(file_metadatadict_for_channel['ImageDocument']['Metadata']['DisplaySetting']['Channels']['Channel'][ch]['Color'])
         
         for chclr in range (0, len(channel_colours)):
@@ -64,9 +75,10 @@ class ReadImage:
                 closest_name = ReadImage.ClosestColour(rgb)
                 channel_colours_name.append(closest_name)
         
-        return(channel_colours_name)
+        return(channel_names, channel_colours_name)
     
     def ChannelsAvaliable_nd2 (image_metadata,channel_size):
+        channel_names = []
         channel_colours = []
         channel_colours_name = []
         if channel_size == 1:
@@ -78,15 +90,39 @@ class ReadImage:
             rgb_color = webcolors.hex_to_rgb('#{:06x}'.format(channel_colours[chclr]))
             rgb_name = webcolors.rgb_to_name(rgb_color)
             channel_colours_name.append(rgb_name)
+        if channel_names==[]:
+            channel_names = channel_colours
+        return (channel_names,channel_colours_name)
     
     def ChannelsAvaliable_lif (image_metadata,channel_size):
+        channel_names = []
         channel_colours_name = []
         if channel_size == 1:
             channel_colours_name.append(image_metadata['LMSDataContainerHeader']['Element']['Children']['Element'][0]['Data']['Image']["ImageDescription"]["Channels"]["ChannelDescription"]["@LUTName"])
         if channel_size > 1:
             for ch in range(channel_size):
                 channel_colours_name.append(image_metadata['LMSDataContainerHeader']['Element']['Children']['Element'][0]['Data']['Image']["ImageDescription"]["Channels"]["ChannelDescription"][ch]["@LUTName"])
-        return(channel_colours_name)
+        if channel_names==[]:
+            channel_names = channel_colours_name
+        return(channel_names, channel_colours_name)
+    
+    def ChannelsAvaliable_tiff (image_metadata,channel_size):
+        channel_names = []
+        channel_colours = []
+        if channel_size == 1:
+            pass
+        if channel_size > 1:
+            for ch in range(channel_size):
+                channel_names.append(image_metadata['OME']['Image']['Pixels']['Channel'][ch]['@Name'])
+                channel_colour = image_metadata['OME']['Image']['Pixels']['Channel'][ch]['@Color']
+                try:
+                    channel_colour = int(channel_colour)
+                    rgb_color = (channel_colour >> 16 & 255, channel_colour >> 8 & 255, channel_colour & 255)
+                    color_name = webcolors.rgb_to_name(rgb_color)
+                except ValueError:
+                    color_name = "mixed"
+                channel_colours.append(color_name)
+        return(channel_names, channel_colours)
     
     def ImageScalingZXY_czi(file_metadatadict_for_scaling):
         scale_x = file_metadatadict_for_scaling['ImageDocument']['Metadata']['Scaling']['Items']['Distance'][0]['Value']
@@ -98,6 +134,12 @@ class ReadImage:
             scale_z = scale_z*10**6
         except IndexError:
             scale_z = 1
+        return([scale_z, scale_x, scale_y])
+    
+    def ImageScalingZXY_tiff (file_metadatadict_for_scaling):
+        scale_x =  float(file_metadatadict_for_scaling['OME']['Image']['Pixels']["@PhysicalSizeX"])
+        scale_y =  float(file_metadatadict_for_scaling['OME']['Image']['Pixels']["@PhysicalSizeY"])
+        scale_z =  float(file_metadatadict_for_scaling['OME']['Image']['Pixels']["@PhysicalSizeZ"])
         return([scale_z, scale_x, scale_y])
     
     def ZPlanes_czi(file_metadatadict_for_z_planes):
@@ -131,7 +173,8 @@ class ReadImage:
         img_metadata = (cf.CziFile(self.path)).metadata(raw=False)
         numpy_array = cf.imread(self.path)
         data["size_xy"]=ReadImage.ImageSize_czi(img_metadata)
-        data["channel_name"]=ReadImage.ChannelsAvaliable_czi(img_metadata)
+        data["channel_name"]=ReadImage.ChannelsAvaliable_czi(img_metadata)[0]
+        data["channel_colors"]=ReadImage.ChannelsAvaliable_czi(img_metadata)[1]
         data["scaling_zxy"] =tuple(ReadImage.ImageScalingZXY_czi(img_metadata))
         data["z_planes"] =ReadImage.ZPlanes_czi(img_metadata)
         data["image_array"] =(ReadImage.ImageList_czi(numpy_array)).transpose(4,1,0,2,3)
@@ -145,23 +188,14 @@ class ReadImage:
         self.data=data
         return(data)
     
-    def readczi_mosaic (self):
-        data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
-        cziobject = AICSImage(self.path)
-        img_reader = cziobject.reader
-        img_metadata = cziobject.metadata
-        img_metadata_dict = ReadImage.ElementToDict(img_metadata)
-        numpy_array = img_reader.data
-        
-    
-    
     def readnd2 (self):
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
         nd2object = AICSImage(self.path)
         img_metadata = nd2object.metadata
         numpy_array = nd2object.get_image_data("TZCXY")
         data["size_xy"]=nd2object.dims.X,nd2object.dims.Y
-        data["channel_name"]=ReadImage.ChannelsAvaliable_nd2(img_metadata,nd2object.dims.C)
+        data["channel_name"]=ReadImage.ChannelsAvaliable_nd2(img_metadata,nd2object.dims.C)[0]
+        data["channel_colors"]=ReadImage.ChannelsAvaliable_nd2(img_metadata,nd2object.dims.C)[1]
         data["scaling_zxy"] = nd2object.physical_pixel_sizes[0],nd2object.physical_pixel_sizes[1],nd2object.physical_pixel_sizes[2]
         data["z_planes"] = nd2object.dims.Z
         data["image_array"] =numpy_array
@@ -181,9 +215,32 @@ class ReadImage:
         img_metadata = ReadImage.ElementToDict(lifobject.metadata)
         numpy_array = lifobject.get_image_data("TZCXY")
         data["size_xy"]=lifobject.dims.X,lifobject.dims.Y
-        data["channel_name"]=ReadImage.ChannelsAvaliable_lif(img_metadata,lifobject.dims.C)
+        data["channel_name"]=ReadImage.ChannelsAvaliable_lif(img_metadata,lifobject.dims.C)[0]
+        data["channel_colors"]=ReadImage.ChannelsAvaliable_lif(img_metadata,lifobject.dims.C)[1]
         data["scaling_zxy"] = lifobject.physical_pixel_sizes[0],lifobject.physical_pixel_sizes[1],lifobject.physical_pixel_sizes[2]
         data["z_planes"] = lifobject.dims.Z
+        data["image_array"] =numpy_array
+        data["image_information"] = {"height":data["image_array"].shape[3:][0],
+                                     "width":data["image_array"].shape[3:][1],
+                                      "height_um":round((data["image_array"].shape[3])*(data["scaling_zxy"][1]),3),
+                                      "width_um":round((data["image_array"].shape[4])*(data["scaling_zxy"][2]),3),
+                                      "depth_um":round((data["image_array"].shape[1])*(data["scaling_zxy"][0]),3),
+                                      "resoultion_um": round(1/(data["scaling_zxy"][2]),3)
+                                     }
+        self.data=data
+        return (data)
+    
+    def readtiff (self):
+        data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
+        tiffobject = AICSImage(self.path)
+        img_metadata = tiffobject.metadata
+        img_metadata = xmltodict.parse(img_metadata)
+        numpy_array = tiffobject.get_image_data("TZCXY")
+        data["size_xy"]=tiffobject.dims.X,tiffobject.dims.Y
+        data["channel_name"]=ReadImage.ChannelsAvaliable_tiff(img_metadata,tiffobject.dims.C)[0]
+        data["channel_colors"]=ReadImage.ChannelsAvaliable_tiff(img_metadata,tiffobject.dims.C)[1]
+        data["scaling_zxy"] = ReadImage.ImageScalingZXY_tiff(img_metadata)
+        data["z_planes"] = tiffobject.dims.Z
         data["image_array"] =numpy_array
         data["image_information"] = {"height":data["image_array"].shape[3:][0],
                                      "width":data["image_array"].shape[3:][1],

@@ -11,7 +11,7 @@ contributions:
   readers:
     - command: napari-findaureus.get_reader
       accepts_directories: false
-      filename_patterns: ['*.czi','*.nd2','*.lif']
+      filename_patterns: ['*.czi','*.nd2','*.lif',"*.tiff"]
   widgets:
     - command: napari-findaureus.make_magic_widget
       display_name: napari-findaureus
