@@ -34,9 +34,12 @@ def reader_function(path: PathOrPaths) -> "napari.types.LayerDataTuple":
     
     image_dict = metadata_dict(path)
     data = image_dict["image_array"]
+    concatenated_names = []
+    for color, name in zip(image_dict["channel_colors"], image_dict["channel_name"]):
+        concatenated_names.append(f"{name} ({color})")
     if image_dict["scaling_zxy"][0] == 0:
-        layer_attributes = {"scale":image_dict["scaling_zxy"][1:] ,"channel_axis": 2,"name":image_dict["channel_colors"] }
+        layer_attributes = {"scale":image_dict["scaling_zxy"][1:] ,"channel_axis": 2,"name":concatenated_names }
     else:
-        layer_attributes = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":image_dict["channel_colors"] }
+        layer_attributes = {"scale":image_dict["scaling_zxy"] ,"channel_axis": 2,"name":concatenated_names }
     layer_type = "image"  # optional, default is "image"
     return [(data, layer_attributes,layer_type)]
