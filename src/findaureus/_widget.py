@@ -18,7 +18,7 @@ from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QFont, QPixmap, QCursor, QDesktopServices
 
 def open_url():
-    QDesktopServices.openUrl(QUrl("https://github.com/shibarjun/napari_findaureus-v1"))
+    QDesktopServices.openUrl(QUrl("https://github.com/shibarjun/napari-findaureus"))
 
 class Find_Bacteria(QWidget):
     def __init__(self, napari_viewer):
@@ -125,6 +125,7 @@ class Find_Bacteria(QWidget):
 
 
     def FindBacteria(self)-> "napari.types.LayerDataTuple":
+        
         current_layer = self.viewer.layers.selection.active
         self.Channel_label.setText("Channel selected: ")
         if current_layer is not None:

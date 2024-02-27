@@ -35,7 +35,7 @@ def etree_to_dict(t):
 imag_path_2 = r"C:\Users\mandalshibarjun\Documents\171012_bone_IF12_ms59118l_G4_63x_NDD_z-stack60um_tile4x4_highres.czi"
 # imag_path_3 = r"C:\Users\mandalshibarjun\Documents\Federike CLSM images\20211123_fixedt0-01(2)_example 1 (big).czi"
 imag_path_4 = r"C:\Users\Shibarjun Mandal\Pictures\Saved Pictures\20230307_t00_-01(4)_example 2 (small).ome.tiff"
-numpy_array = cf.imread(imag_path_3)
+# numpy_array = cf.imread(imag_path_3)
 # czi = cf.CziFile(imag_path_1)
 # array_data = czi.asarray()
 def ImageList_czi(image_file_numpy_array):
@@ -118,7 +118,8 @@ f = ChannelsAvaliable_tiff(img_metadata_4_xml, channel_size)[1]
 
 #%% Read CZI
 img_metadata = (cf.CziFile(imag_path_2)).metadata(raw=False)
-
+dict_str = img_metadata['ImageDocument']['Metadata']['Information']['Application']
+name_exmpl = dict_str['Name']+" ("+dict_str['Version']+")"
 #%% Read nd2
 nd2object = AICSImage(r"C:\Users\Shibarjun Mandal\Downloads\nd005.nd2")
 img_metadata = nd2object.metadata
