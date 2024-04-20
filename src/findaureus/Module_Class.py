@@ -234,6 +234,7 @@ class ReadImage:
         data = {"size_xy": None,"channel_name": None, "scaling_zxy": None, "z_planes": None, "image_array": None, "image_information": None}
         tiffobject = AICSImage(self.path)
         img_metadata = tiffobject.metadata
+        img_metadata = str(img_metadata)
         img_metadata = xmltodict.parse(img_metadata)
         numpy_array = tiffobject.get_image_data("TZCXY")
         data["size_xy"]=tiffobject.dims.X,tiffobject.dims.Y
