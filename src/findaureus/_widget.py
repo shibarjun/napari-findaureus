@@ -1,14 +1,8 @@
-"""
-This module is an example of a barebones QWidget plugin for napari
-
-It implements the Widget specification.
-see: https://napari.org/stable/plugins/guides.html?#widgets
-
-Replace code below according to your needs.
-"""
 from typing import TYPE_CHECKING
 from .Module_Class import *
 import napari.layers
+import os
+import pkg_resources
 
 if TYPE_CHECKING:
     import napari
@@ -43,7 +37,8 @@ class Find_Bacteria(QWidget):
         content_layout_1 = QHBoxLayout(content_widget_1)
         
         ##findauresu icon
-        icon_fa = QPixmap("src/findaureus/resources/application_icon.png")
+        icon_fa_path = pkg_resources.resource_filename('findaureus', 'resources/application_icon.png')
+        icon_fa = QPixmap(icon_fa_path)
         icon_fa = icon_fa.scaled(64, 64)
         fa_widget = QLabel()
         fa_widget.setPixmap(icon_fa)
@@ -64,8 +59,8 @@ class Find_Bacteria(QWidget):
         content_layout_2 = QHBoxLayout(content_widget_2)
 
         ##github icon
-        icon_gh = QPixmap("src/findaureus/resources/GitHub-Mark-Light-32px.png")
-        icon_gh = icon_gh.scaled(32,32)
+        icon_gh_path = pkg_resources.resource_filename('findaureus', 'resources/GitHub-Mark-Light-32px.png')
+        icon_gh = QPixmap(icon_gh_path)
         gh_widget = QLabel()
         gh_widget.setPixmap(icon_gh)
         gh_widget.setCursor(QCursor(Qt.PointingHandCursor))
