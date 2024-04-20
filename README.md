@@ -2,7 +2,7 @@
 
 "Findaureus" is now available to use in napari.
 <p align="center">
-<img src = "https://github.com/shibarjun/napari-findaureus/blob/main/docs/napari-findaureus.png" />
+<img src="https://raw.githubusercontent.com/shibarjun/napari-findaureus/main/docs/napari-findaureus.png" />
 </p>
 
 Findaureus is a tool designed to identify bacteria in infected bone tissue images obtained via Confocal Laser Scanning Microscopy (CLSM). This tool can be accessed independently [here](https://github.com/shibarjun/Findaureus). Findaureus has been integrated as a plugin for napari. In addition to its bacteria-locating algorithm, the napari viewer provides improved visualization features, in 2D and 3D perspectives.
@@ -48,7 +48,7 @@ To use the `napari-findaureus` plugin, please follow the steps below:
 7. Before you proceed to another image, reset the viewer by clicking on the `Reset` button provided in the widget.
 
 <p align="center">
-<img src = "https://github.com/shibarjun/napari-findaureus/blob/main/docs/napari-findaureus.gif" />
+<img src="https://raw.githubusercontent.com/shibarjun/napari-findaureus/main/docs/napari-findaureus.gif" />
 </p>
 
 Enjoy exploring the fascinating world of bacteria in mouse bone tissues!
