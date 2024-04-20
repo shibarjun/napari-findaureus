@@ -83,4 +83,5 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_API_KEY }}
         run: |
-          echo "Bypassing deployment"
+          python -m build
+          python -m twine upload dist/*
