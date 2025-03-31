@@ -118,31 +118,138 @@ class Find_Bacteria(QWidget):
         data = np.expand_dims(data, axis=0)
         return(data)
 
-
-    def FindBacteria(self)-> "napari.types.LayerDataTuple":
-        
-        current_layer = self.viewer.layers.selection.active
-        self.Channel_label.setText("Channel selected: ")
-        if current_layer is not None:
+    def get_roi_from_layer(self, layer):
+        """Extract ROI from selected shapes/labels in the viewer"""
+        shapes = [x for x in self.viewer.layers if isinstance(x, napari.layers.Shapes)]
+        if not shapes:
+            return None, None, None
             
-            image_list = list(current_layer.data[0,:,:,:])
-            _,scalez,scalex ,scaley  = current_layer.scale 
-            scalexy = (scalex,scaley)
-            scalezxy = (scalez,scaley,scalex)
-            bac_image_list,bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
-            bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
-            bac_data_bb = Find_Bacteria.for_napari(bac_image_list)
-            self.bac_dict = bac_centroid_xy_coordinates
-            print("Findbac Done")
-            self.image_processed.setText("Image processed and added as a new layer.")
-            self.bacteria_info_label1.setText(f"No. of Channel with Bacteria:.{len(bac_centroid_xy_coordinates)} \nNo. of Channel without Bacteria: {len(no_bac_dict)} ")
-            if scalez==1:
-                bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"])
-                self.bacteria_info_label2.setText(f"No. of Bacterial Region: {bac_found}")
-            else:
-                self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
-            self.viewer.add_image(bac_data_bb, name=f"{current_layer.name}_Bounding box", scale= scalezxy, opacity=0.7)
-            self.viewer.add_image(bac_data_mask, name=f"{current_layer.name}_Bacteria mask", scale= scalezxy, opacity=0.5, colormap='red', visible=False)
+        shape_layer = shapes[0]
+        if len(shape_layer.data) == 0:
+            return None, None, None
+            
+        # Get the first shape's data
+        bbox = shape_layer.data[0]
+        if bbox.ndim > 1:
+            mins = np.min(bbox, axis=0)
+            maxs = np.max(bbox, axis=0)
+            
+            # Get ROI dimensions in pixels and microns
+            height_px = int(np.ceil(maxs[-2]) - np.floor(mins[-2]))
+            width_px = int(np.ceil(maxs[-1]) - np.floor(mins[-1]))
+            
+            slice_coords = []
+            for min_val, max_val in zip(mins[-2:], maxs[-2:]):
+                start = max(0, int(np.floor(min_val)))
+                end = int(np.ceil(max_val))
+                slice_coords.append(slice(start, end))
+                
+            roi_info = {
+                'start_y': slice_coords[0].start,
+                'start_x': slice_coords[1].start,
+                'height_px': height_px,
+                'width_px': width_px
+            }
+            
+            bounds = np.array([mins[-2:], maxs[-2:]])
+            return slice_coords, bounds, roi_info
+                
+        return None, None, None
+
+    def FindBacteria(self) -> "napari.types.LayerDataTuple":
+        current_layer = self.viewer.layers.selection.active
+        if current_layer is None:
+            return
+            
+        # Get ROI if selected
+        roi_slices, bounds, roi_info = self.get_roi_from_layer(current_layer)
+        
+        image_list = list(current_layer.data[0,:,:,:])
+        _,scalez,scalex,scaley = current_layer.scale
+        scalexy = (scalex,scaley)
+        scalezxy = (scalez,scaley,scalex)
+
+        # Update channel info with ROI details if present
+        if roi_info:
+            roi_height_um = roi_info['height_px'] * scalex
+            roi_width_um = roi_info['width_px'] * scaley
+            roi_start_y_um = roi_info['start_y'] * scalex
+            roi_start_x_um = roi_info['start_x'] * scaley
+            
+            self.Channel_label.setText(
+                f"{self.Channel_label.text()}\n\n"
+                f"ROI Information:\n"
+                f"Position: ({roi_start_x_um:.2f}, {roi_start_y_um:.2f}) µm\n"
+                f"Size: {roi_width_um:.2f} × {roi_height_um:.2f} µm\n"
+                f"({roi_info['width_px']} × {roi_info['height_px']} pixels)"
+            )
+
+        # Crop to ROI if present
+        if roi_slices:
+            cropped_list = []
+            for img in image_list:
+                cropped = img[roi_slices[0], roi_slices[1]]
+                cropped_list.append(cropped)
+            image_list = cropped_list
+            
+            # Update scale for cropped region
+            scalezxy = (scalez, (bounds[0][1]-bounds[0][0])*scalex, 
+                      (bounds[1][1]-bounds[1][0])*scaley)
+
+        # Process image for bacteria detection
+        bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
+        
+        # Convert results for napari display
+        bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
+        bac_data_bb = Find_Bacteria.for_napari(bac_image_list)
+        self.bac_dict = bac_centroid_xy_coordinates
+
+        # Update UI with bacteria detection results
+        roi_text = " (ROI)" if roi_slices else ""
+        self.image_processed.setText(f"Image{roi_text} processed and added as a new layer.")
+        
+        total_bacteria = sum(len(coords) for coords in bac_centroid_xy_coordinates.values())
+        self.bacteria_info_label1.setText(
+            f"No. of Channel with Bacteria: {len(bac_centroid_xy_coordinates)} \n"
+            f"No. of Channel without Bacteria: {len(no_bac_dict)}\n"
+            f"Total bacteria detected{roi_text}: {total_bacteria}"
+        )
+
+        if scalez==1:
+            bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"]) 
+            self.bacteria_info_label2.setText(f"No. of Bacterial Region{roi_text}: {bac_found}")
+        else:
+            self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
+
+        # Add processed layers with transparency
+        suffix = "_ROI" if roi_slices else ""
+        
+        # Create bounding box layer with only the boxes visible
+        self.viewer.add_image(
+            bac_data_bb, 
+            name=f"{current_layer.name}_Bounding box{suffix}", 
+            scale=scalezxy,
+            opacity=1.0,
+            contrast_limits=[254, 255],  # Only show the bright box lines
+            gamma=1.0,
+            rendering='translucent',
+            blending='additive',
+            visible=True,
+            colormap='yellow'  # Make boxes more visible
+        )
+        
+        # Add mask with high contrast red highlights
+        self.viewer.add_image(
+            bac_data_mask,
+            name=f"{current_layer.name}_Bacteria mask{suffix}", 
+            scale=scalezxy,
+            opacity=1.0,
+            colormap='red',
+            contrast_limits=[128, 255],
+            rendering='translucent',
+            blending='additive',
+            visible=True
+        )
 
     def reset_viewer_and_widget(self):
         self.viewer.layers.select_all()
