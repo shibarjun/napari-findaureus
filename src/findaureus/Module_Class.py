@@ -328,16 +328,11 @@ class ReadImage:
         centroid = []
         area_list_um2 = []
         boxes = []
-        bound_boxed_image = input_image.copy()
-        
+        bound_boxed_image = np.zeros_like(input_image)  # Create empty image instead of copying
         
         for cnt in found_contour:
-            # try:
-            #     scalez,scalex,scaley = scalezxy
-            # except:
-            scalex,scaley =scalexy
-                
-            bac_dia = 0.5 # considering bac size 0.5 um in diameter
+            scalex,scaley = scalexy
+            bac_dia = 0.5
             contour_area = cv2.contourArea(cnt)
             contour_area_um = (scalex*scaley)*(contour_area)
             area_bac_um = np.pi*(bac_dia/2)**2
@@ -354,7 +349,8 @@ class ReadImage:
             
         for box in selected_boxes:
             x,y,w,h = box
-            cv2.rectangle(bound_boxed_image,(x,y),(x+w,y+h),(255,0,0),1)
+            # Draw white boxes (255) on black background (0)
+            cv2.rectangle(bound_boxed_image,(x,y),(x+w,y+h),255,1)
             cx = int(x + 0.5 * w)
             cy = int(y + 0.5 * h)
             cxy = (cx,cy)
