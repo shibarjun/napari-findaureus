@@ -188,7 +188,17 @@ class Find_Bacteria(QWidget):
             self.analysis_info.setText("No layer selected")
             self.analysis_active = False  # Reset flag if no layer is selected
             return
-        
+
+        # Check if the selected layer is a Shapes layer
+        if isinstance(current_layer, napari.layers.Shapes):
+            self.analysis_info.setText(
+                "ROI Selection Active:\n"
+                "After selecting the desired shape for your ROI, "
+                "please select the image channel containing bacteria and then press 'Find bacteria!' again."
+            )
+            self.analysis_active = False # Reset flag as analysis is not proceeding
+            return
+
         # Get ROI if selected
         roi_slices, bounds, roi_info = self.get_roi_from_layer(current_layer)
         
@@ -250,7 +260,11 @@ class Find_Bacteria(QWidget):
             ])
 
             if scalez == 1:
-                bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"])
+                # Check if the key exists before accessing it
+                if "xy_Z_0" in bac_centroid_xy_coordinates:
+                    bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"])
+                else:
+                    bac_found = 0 # Assume 0 if key doesn't exist
                 analysis_text.append(f"• Bacterial regions in current plane: {bac_found}")
             
             # Update the analysis info text and force refresh
