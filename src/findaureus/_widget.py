@@ -7,7 +7,7 @@ import pkg_resources
 if TYPE_CHECKING:
     import napari
 
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout, QTextEdit, QDialog
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout, QTextEdit, QDialog, QSizePolicy
 from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QFont, QPixmap, QCursor, QDesktopServices
 
@@ -18,7 +18,13 @@ class Find_Bacteria(QWidget):
     def __init__(self, napari_viewer):
         super().__init__()
         self.viewer = napari_viewer
+        self.analysis_active = False  # Add this flag
         self.init_ui()
+        # Check for active layer on startup
+        if len(self.viewer.layers) > 0:
+            active_layer = self.viewer.layers.selection.active
+            if active_layer is not None:
+                self.update_image_info(active_layer)
         self.viewer.layers.selection.events.active.connect(self.on_layer_selection_change)
 
     def init_ui(self):
@@ -88,25 +94,44 @@ class Find_Bacteria(QWidget):
         reset_button.setFont(buttonfont)
         layout.addWidget(reset_button, alignment=Qt.AlignRight)
         
-        #text about processed information
-        self.image_processed = QLabel("")
-        self.image_processed.setFont(labelfont)
-        layout.addWidget(self.image_processed)
+        # Add section for general image info with border
+        info_container = QWidget()
+        info_container.setStyleSheet("QWidget { border: 1px solid gray; border-radius: 3px; padding: 5px; }")
+        info_layout = QVBoxLayout()
         
-        #text about channel selected
-        self.Channel_label= QLabel("")
-        self.Channel_label.setFont(labelfont)
-        layout.addWidget(self.Channel_label)
+        self.general_info_label = QLabel("Image Information")
+        self.general_info_label.setFont(labelfont)
+        self.general_info_label.setStyleSheet("font-weight: bold; border: none;")
+        info_layout.addWidget(self.general_info_label)
+
+        self.image_info = QLabel("")
+        self.image_info.setFont(labelfont)
+        self.image_info.setStyleSheet("border: none;")
+        info_layout.addWidget(self.image_info)
         
-        #text about bacteria
-        self.bacteria_info_label1 = QLabel("")
-        self.bacteria_info_label1.setFont(labelfont)
-        layout.addWidget(self.bacteria_info_label1)
+        info_container.setLayout(info_layout)
+        layout.addWidget(info_container)
+
+        # Add section for analysis results with border (always visible)
+        self.analysis_container = QWidget()
+        self.analysis_container.setStyleSheet("QWidget { border: 1px solid gray; border-radius: 3px; padding: 5px; margin-top: 5px; }")
+        self.analysis_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        analysis_layout = QVBoxLayout(self.analysis_container)
+        analysis_layout.setSpacing(8)  # Increased spacing
         
-        #text about bacteria
-        self.bacteria_info_label2 = QLabel("")
-        self.bacteria_info_label2.setFont(labelfont)
-        layout.addWidget(self.bacteria_info_label2)
+        self.analysis_label = QLabel("Analysis Results")
+        self.analysis_label.setFont(labelfont)
+        self.analysis_label.setStyleSheet("font-weight: bold; border: none;")
+        analysis_layout.addWidget(self.analysis_label)
+        
+        self.analysis_info = QLabel("No analysis performed yet")
+        self.analysis_info.setFont(labelfont)
+        self.analysis_info.setStyleSheet("border: none;")
+        self.analysis_info.setWordWrap(True)
+        self.analysis_info.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        analysis_layout.addWidget(self.analysis_info)
+        
+        layout.addWidget(self.analysis_container)
 
         self.setLayout(layout)
         self.instruction_window = None
@@ -157,10 +182,13 @@ class Find_Bacteria(QWidget):
         return None, None, None
 
     def FindBacteria(self) -> "napari.types.LayerDataTuple":
+        self.analysis_active = True  # Set flag when analysis starts
         current_layer = self.viewer.layers.selection.active
         if current_layer is None:
+            self.analysis_info.setText("No layer selected")
+            self.analysis_active = False  # Reset flag if no layer is selected
             return
-            
+        
         # Get ROI if selected
         roi_slices, bounds, roi_info = self.get_roi_from_layer(current_layer)
         
@@ -175,14 +203,10 @@ class Find_Bacteria(QWidget):
             roi_width_um = roi_info['width_px'] * scaley
             roi_start_y_um = roi_info['start_y'] * scalex
             roi_start_x_um = roi_info['start_x'] * scaley
-            
-            self.Channel_label.setText(
-                f"{self.Channel_label.text()}\n\n"
-                f"ROI Information:\n"
-                f"Position: ({roi_start_x_um:.2f}, {roi_start_y_um:.2f}) µm\n"
-                f"Size: {roi_width_um:.2f} × {roi_height_um:.2f} µm\n"
-                f"({roi_info['width_px']} × {roi_info['height_px']} pixels)"
-            )
+
+        # Set analysis info to "Processing..." while running
+        self.analysis_info.setText("Processing...")
+        self.analysis_info.repaint()  # Force immediate update
 
         # Crop to ROI if present
         if roi_slices:
@@ -196,66 +220,89 @@ class Find_Bacteria(QWidget):
             scalezxy = (scalez, (bounds[0][1]-bounds[0][0])*scalex, 
                       (bounds[1][1]-bounds[1][0])*scaley)
 
-        # Process image for bacteria detection
-        bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
-        
-        # Convert results for napari display
-        bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
-        bac_data_bb = Find_Bacteria.for_napari(bac_image_list)
-        self.bac_dict = bac_centroid_xy_coordinates
+        try:
+            # Process image for bacteria detection
+            bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
+            
+            # Convert results for napari display
+            bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
+            bac_data_bb = Find_Bacteria.for_napari(bac_image_list)
+            self.bac_dict = bac_centroid_xy_coordinates
 
-        # Update UI with bacteria detection results
-        roi_text = " (ROI)" if roi_slices else ""
-        self.image_processed.setText(f"Image{roi_text} processed and added as a new layer.")
-        
-        total_bacteria = sum(len(coords) for coords in bac_centroid_xy_coordinates.values())
-        self.bacteria_info_label1.setText(
-            f"No. of Channel with Bacteria: {len(bac_centroid_xy_coordinates)} \n"
-            f"No. of Channel without Bacteria: {len(no_bac_dict)}\n"
-            f"Total bacteria detected{roi_text}: {total_bacteria}"
-        )
+            # Calculate total bacteria
+            total_bacteria = sum(len(coords) for coords in bac_centroid_xy_coordinates.values())
+            
+            # Format analysis text with clear sections
+            analysis_text = []
+            if roi_slices:
+                analysis_text.extend([
+                    "ROI Analysis:",
+                    f"• Position: ({roi_start_x_um:.2f}, {roi_start_y_um:.2f}) µm",
+                    f"• Size: {roi_width_um:.2f} × {roi_height_um:.2f} µm",
+                    ""
+                ])
+            
+            analysis_text.extend([
+                "Bacteria Detection Results:",
+                f"• Z planes with bacteria: {len(bac_centroid_xy_coordinates)}",
+                f"• Z planes without bacteria: {len(no_bac_dict)}",
+                f"• Total bacteria detected: {total_bacteria}"
+            ])
 
-        if scalez==1:
-            bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"]) 
-            self.bacteria_info_label2.setText(f"No. of Bacterial Region{roi_text}: {bac_found}")
-        else:
-            self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
+            if scalez == 1:
+                bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"])
+                analysis_text.append(f"• Bacterial regions in current plane: {bac_found}")
+            
+            # Update the analysis info text and force refresh
+            self.analysis_info.setText("\n".join(analysis_text))
+            self.analysis_info.repaint()
 
-        # Add processed layers with transparency
-        suffix = "_ROI" if roi_slices else ""
-        
-        # Create bounding box layer with only the boxes visible
-        self.viewer.add_image(
-            bac_data_bb, 
-            name=f"{current_layer.name}_Bounding box{suffix}", 
-            scale=scalezxy,
-            opacity=1.0,
-            contrast_limits=[254, 255],  # Only show the bright box lines
-            gamma=1.0,
-            rendering='translucent',
-            blending='additive',
-            visible=True,
-            colormap='yellow'  # Make boxes more visible
-        )
-        
-        # Add mask with high contrast red highlights
-        self.viewer.add_image(
-            bac_data_mask,
-            name=f"{current_layer.name}_Bacteria mask{suffix}", 
-            scale=scalezxy,
-            opacity=1.0,
-            colormap='red',
-            contrast_limits=[128, 255],
-            rendering='translucent',
-            blending='additive',
-            visible=True
-        )
+            # Connect Z-plane change event for 3D images
+            if scalez != 1:
+                self.viewer.dims.events.current_step.connect(self.on_active_layer_change)
+
+            # Add processed layers with transparency
+            suffix = "_ROI" if roi_slices else ""
+            
+            # Create bounding box layer with only the boxes visible
+            self.viewer.add_image(
+                bac_data_bb, 
+                name=f"{current_layer.name}_Bounding box{suffix}", 
+                scale=scalezxy,
+                opacity=1.0,
+                contrast_limits=[254, 255],  # Only show the bright box lines
+                gamma=1.0,
+                rendering='translucent',
+                blending='additive',
+                visible=True,
+                colormap='yellow'  # Make boxes more visible
+            )
+            
+            # Add mask with high contrast red highlights
+            self.viewer.add_image(
+                bac_data_mask,
+                name=f"{current_layer.name}_Bacteria mask{suffix}", 
+                scale=scalezxy,
+                opacity=1.0,
+                colormap='red',
+                contrast_limits=[128, 255],
+                rendering='translucent',
+                blending='additive',
+                visible=True
+            )
+
+        except Exception as e:
+            self.analysis_info.setText(f"Error during analysis: {str(e)}")
+            self.analysis_info.repaint()
+            self.analysis_active = False  # Reset flag on error
+            return
 
     def reset_viewer_and_widget(self):
         self.viewer.layers.select_all()
         self.viewer.layers.remove_selected()
+        self.analysis_active = False  # Reset flag when resetting widget
         self.clear_texts_and_labels()
-        
+
     def for_raw_layer(active_layer):
         
         _,scalez,scalex ,scaley  = active_layer.scale
@@ -265,19 +312,27 @@ class Find_Bacteria(QWidget):
         depth_um, layer_height_um, layer_width_um = z_layer*scalez, layer_height_px*scalex, layer_width_px*scaley
         return(layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um,scalex)
     
-    def on_layer_selection_change(self, event):
-        active_layer = event.value
-        
+    def update_image_info(self, layer):
         try:
-            layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um,scalex = Find_Bacteria.for_raw_layer(active_layer)
+            layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um, scalex = Find_Bacteria.for_raw_layer(layer)
             
-            self.Channel_label.setText(f"Channel selected: {layer_name} \nImage height: {layer_height_um} microns ({layer_height_px}) \nImage width: {layer_width_um} microns ({layer_width_px}) \nImage depth: {depth_um} microns \nImage resolution: {round(1/scalex)} pixels per micron")
+            self.image_info.setText(
+                f"Channel selected: {layer_name}\n"
+                f"Image height: {layer_height_um:.2f} microns ({layer_height_px} px)\n"
+                f"Image width: {layer_width_um:.2f} microns ({layer_width_px} px)\n"
+                f"Image depth: {depth_um:.2f} microns\n"
+                f"Image resolution: {round(1/scalex)} pixels per micron"
+            )
         except:
             pass
+
+    def on_layer_selection_change(self, event):
+        active_layer = event.value
+        self.update_image_info(active_layer)
+        if not self.analysis_active:  # Only reset if no analysis is active
+            self.analysis_info.setText("No analysis performed yet")
             
-    
     def on_active_layer_change(self):
-        
         try:
             current_z_plane = int(self.viewer.dims.current_step[2])# Index 2 corresponds to the new layer Z-plane value
         except:
@@ -285,16 +340,15 @@ class Find_Bacteria(QWidget):
         bacteria_dic = self.bac_dict
         if "xy_Z_"+format(current_z_plane) in bacteria_dic:
             bac_found = len(bacteria_dic["xy_Z_"+format(current_z_plane)])
-            self.bacteria_info_label2.setText(f"No. of Bacterial Region: {bac_found}")
+            curr_analysis = self.analysis_info.text()
+            base_info = "\n".join(curr_analysis.split("\n")[:-1])  # Keep all but last line
+            self.analysis_info.setText(f"{base_info}\n• Bacterial regions in current plane: {bac_found}")
         else:
-            self.bacteria_info_label2.setText("No. of Bacterial Region: N/A")
+            self.analysis_info.setText(f"{self.analysis_info.text()}\n• Bacterial regions in current plane: N/A")
     
-        
     def clear_texts_and_labels(self):
-        for i in reversed(range(self.layout().count())):
-            widget = self.layout().itemAt(i).widget()
-            if isinstance(widget, QLabel)and widget is not self.title:
-                widget.setText('')
+        self.image_info.setText("")
+        self.analysis_info.setText("")
         
     def open_instruction(self):
         if not self.instruction_window or not self.instruction_window.isVisible():
