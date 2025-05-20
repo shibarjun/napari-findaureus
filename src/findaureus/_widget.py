@@ -26,6 +26,7 @@ class Find_Bacteria(QWidget):
             if active_layer is not None:
                 self.update_image_info(active_layer)
         self.viewer.layers.selection.events.active.connect(self.on_layer_selection_change)
+        self.viewer.layers.events.removed.connect(self.on_layers_removed)
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -53,7 +54,7 @@ class Find_Bacteria(QWidget):
         description_widget = QPlainTextEdit()
         description_widget.setReadOnly(True)
         description_widget.setPlainText("Find bacteria in confocal laser scanning microscopy (CLSM) obtained infected bone tissue images.")
-        description_widget.setFixedSize(256, 50)
+        description_widget.setFixedSize(256, 64)
         
         ##conclude the content
         content_layout_1.addWidget(fa_widget)
@@ -96,7 +97,8 @@ class Find_Bacteria(QWidget):
         
         # Add section for general image info with border
         info_container = QWidget()
-        info_container.setStyleSheet("QWidget { border: 1px solid gray; border-radius: 3px; padding: 5px; }")
+        container_style = "QWidget { border: 1px solid gray; border-radius: 3px; padding: 5px; }"
+        info_container.setStyleSheet(container_style)
         info_layout = QVBoxLayout()
         
         self.general_info_label = QLabel("Image Information")
@@ -112,9 +114,9 @@ class Find_Bacteria(QWidget):
         info_container.setLayout(info_layout)
         layout.addWidget(info_container)
 
-        # Add section for analysis results with border (always visible)
+        # Add section for analysis results with the same border style
         self.analysis_container = QWidget()
-        self.analysis_container.setStyleSheet("QWidget { border: 1px solid gray; border-radius: 3px; padding: 5px; margin-top: 5px; }")
+        self.analysis_container.setStyleSheet(container_style)
         self.analysis_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         analysis_layout = QVBoxLayout(self.analysis_container)
         analysis_layout.setSpacing(8)  # Increased spacing
@@ -201,18 +203,10 @@ class Find_Bacteria(QWidget):
 
         # Get ROI if selected
         roi_slices, bounds, roi_info = self.get_roi_from_layer(current_layer)
-        
         image_list = list(current_layer.data[0,:,:,:])
         _,scalez,scalex,scaley = current_layer.scale
         scalexy = (scalex,scaley)
         scalezxy = (scalez,scaley,scalex)
-
-        # Update channel info with ROI details if present
-        if roi_info:
-            roi_height_um = roi_info['height_px'] * scalex
-            roi_width_um = roi_info['width_px'] * scaley
-            roi_start_y_um = roi_info['start_y'] * scalex
-            roi_start_x_um = roi_info['start_x'] * scaley
 
         # Set analysis info to "Processing..." while running
         self.analysis_info.setText("Processing...")
@@ -225,7 +219,6 @@ class Find_Bacteria(QWidget):
                 cropped = img[roi_slices[0], roi_slices[1]]
                 cropped_list.append(cropped)
             image_list = cropped_list
-            
             # Update scale for cropped region
             scalezxy = (scalez, (bounds[0][1]-bounds[0][0])*scalex, 
                       (bounds[1][1]-bounds[1][0])*scaley)
@@ -233,43 +226,59 @@ class Find_Bacteria(QWidget):
         try:
             # Process image for bacteria detection
             bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy)
-            
             # Convert results for napari display
             bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask)
             bac_data_bb = Find_Bacteria.for_napari(bac_image_list)
             self.bac_dict = bac_centroid_xy_coordinates
-
             # Calculate total bacteria
             total_bacteria = sum(len(coords) for coords in bac_centroid_xy_coordinates.values())
-            
-            # Format analysis text with clear sections
-            analysis_text = []
-            if roi_slices:
-                analysis_text.extend([
-                    "ROI Analysis:",
-                    f"• Position: ({roi_start_x_um:.2f}, {roi_start_y_um:.2f}) µm",
-                    f"• Size: {roi_width_um:.2f} × {roi_height_um:.2f} µm",
-                    ""
-                ])
-            
-            analysis_text.extend([
-                "Bacteria Detection Results:",
-                f"• Z planes with bacteria: {len(bac_centroid_xy_coordinates)}",
-                f"• Z planes without bacteria: {len(no_bac_dict)}",
-                f"• Total bacteria detected: {total_bacteria}"
-            ])
 
-            if scalez == 1:
-                # Check if the key exists before accessing it
-                if "xy_Z_0" in bac_centroid_xy_coordinates:
-                    bac_found = len(bac_centroid_xy_coordinates["xy_Z_0"])
-                else:
-                    bac_found = 0 # Assume 0 if key doesn't exist
-                analysis_text.append(f"• Bacterial regions in current plane: {bac_found}")
-            
-            # Update the analysis info text and force refresh
-            self.analysis_info.setText("\n".join(analysis_text))
-            self.analysis_info.repaint()
+            # If ROI is selected, show ROI info and bacterial regions in current z plane in analysis_info
+            if roi_slices and roi_info:
+                roi_area_um2 = roi_info['height_px'] * scalex * roi_info['width_px'] * scalex
+                layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um, _ = Find_Bacteria.for_raw_layer(current_layer)
+                analysis_text = [
+                    "ROI Analysis:",
+                    f"ROI height: {roi_info['height_px']*scalex:.2f} μm ({roi_info['height_px']} px)",
+                    f"ROI width: {roi_info['width_px']*scalex:.2f} μm ({roi_info['width_px']} px)",
+                    f"ROI area: {roi_area_um2:.2f} μm²",
+                ]
+                if depth_um > 0:
+                    roi_volume_um3 = roi_area_um2 * depth_um
+                    analysis_text.append(f"ROI volume: {roi_volume_um3:.2f} μm³")
+                # Only show bacterial regions in current plane
+                try:
+                    current_z_plane = int(self.viewer.dims.current_step[2])
+                except Exception:
+                    current_z_plane = 0
+                key = f"xy_Z_{current_z_plane}"
+                bac_found = len(bac_centroid_xy_coordinates.get(key, []))
+                analysis_text.append(f"Bacterial regions in current plane: {bac_found}")
+                self.analysis_info.setText("\n".join(analysis_text))
+                self.analysis_info.repaint()
+                self._last_roi_info = {
+                    'roi_info': roi_info,
+                    'scalex': scalex,
+                    'depth_um': depth_um
+                }
+            else:
+                self._last_roi_info = None
+                analysis_text = []
+                analysis_text.extend([
+                    f"Z planes with bacteria: {len(bac_centroid_xy_coordinates)}",
+                    f"Z planes without bacteria: {len(no_bac_dict)}",
+                    f"Total bacteria detected: {total_bacteria}"
+                ])
+                # Only show bacterial regions in current plane
+                try:
+                    current_z_plane = int(self.viewer.dims.current_step[2])
+                except Exception:
+                    current_z_plane = 0
+                key = f"xy_Z_{current_z_plane}"
+                bac_found = len(bac_centroid_xy_coordinates.get(key, []))
+                analysis_text.append(f"Bacterial regions in current plane: {bac_found}")
+                self.analysis_info.setText("\n".join(analysis_text))
+                self.analysis_info.repaint()
 
             # Connect Z-plane change event for 3D images
             if scalez != 1:
@@ -277,7 +286,6 @@ class Find_Bacteria(QWidget):
 
             # Add processed layers with transparency
             suffix = "_ROI" if roi_slices else ""
-            
             # Create bounding box layer with only the boxes visible
             self.viewer.add_image(
                 bac_data_bb, 
@@ -291,7 +299,6 @@ class Find_Bacteria(QWidget):
                 visible=True,
                 colormap='yellow'  # Make boxes more visible
             )
-            
             # Add mask with high contrast red highlights
             self.viewer.add_image(
                 bac_data_mask,
@@ -304,6 +311,9 @@ class Find_Bacteria(QWidget):
                 blending='additive',
                 visible=True
             )
+
+            # Force update of analysis box for current z-plane
+            self.on_active_layer_change()
 
         except Exception as e:
             self.analysis_info.setText(f"Error during analysis: {str(e)}")
@@ -326,18 +336,37 @@ class Find_Bacteria(QWidget):
         depth_um, layer_height_um, layer_width_um = z_layer*scalez, layer_height_px*scalex, layer_width_px*scaley
         return(layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um,scalex)
     
-    def update_image_info(self, layer):
+    def update_image_info(self, layer, roi_info=None):
         try:
             layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um, scalex = Find_Bacteria.for_raw_layer(layer)
-            
-            self.image_info.setText(
-                f"Channel selected: {layer_name}\n"
-                f"Image height: {layer_height_um:.2f} microns ({layer_height_px} px)\n"
-                f"Image width: {layer_width_um:.2f} microns ({layer_width_px} px)\n"
-                f"Image depth: {depth_um:.2f} microns\n"
-                f"Image resolution: {round(1/scalex)} pixels per micron"
-            )
-        except:
+            # If ROI info is provided, use ROI dimensions for area/volume
+            if roi_info:
+                roi_area_um2 = roi_info['height_px'] * scalex * roi_info['width_px'] * scalex
+                info_text = (
+                    f"Channel selected: {layer_name}\n"
+                    f"ROI height: {roi_info['height_px']*scalex:.2f} μm ({roi_info['height_px']} px)\n"
+                    f"ROI width: {roi_info['width_px']*scalex:.2f} μm ({roi_info['width_px']} px)\n"
+                    f"ROI area: {roi_area_um2:.2f} μm²\n"
+                )
+                # If depth > 0, show ROI volume
+                if depth_um > 0:
+                    roi_volume_um3 = roi_area_um2 * depth_um
+                    info_text += f"ROI volume: {roi_volume_um3:.2f} μm³\n"
+            else:
+                area_um2 = layer_height_um * layer_width_um
+                info_text = (
+                    f"Channel selected: {layer_name}\n"
+                    f"Image height: {layer_height_um:.2f} μm ({layer_height_px} px)\n"
+                    f"Image width: {layer_width_um:.2f} μm ({layer_width_px} px)\n"
+                    f"Image depth: {depth_um:.2f} μm\n"
+                    f"Image area: {area_um2:.2f} μm²\n"
+                    f"Image resolution: {round(1/scalex)} pixels per μm"
+                )
+                if depth_um > 0:
+                    volume_um3 = area_um2 * depth_um
+                    info_text += f"\nImage volume: {volume_um3:.2f} μm³"
+            self.image_info.setText(info_text)
+        except Exception:
             pass
 
     def on_layer_selection_change(self, event):
@@ -347,19 +376,46 @@ class Find_Bacteria(QWidget):
             self.analysis_info.setText("No analysis performed yet")
             
     def on_active_layer_change(self):
-        try:
-            current_z_plane = int(self.viewer.dims.current_step[2])# Index 2 corresponds to the new layer Z-plane value
-        except:
-            current_z_plane = 0
-        bacteria_dic = self.bac_dict
-        if "xy_Z_"+format(current_z_plane) in bacteria_dic:
-            bac_found = len(bacteria_dic["xy_Z_"+format(current_z_plane)])
-            curr_analysis = self.analysis_info.text()
-            base_info = "\n".join(curr_analysis.split("\n")[:-1])  # Keep all but last line
-            self.analysis_info.setText(f"{base_info}\n• Bacterial regions in current plane: {bac_found}")
+        # For ROI, keep ROI info and update only the bacterial region count, keeping area/volume info consistent
+        if hasattr(self, '_last_roi_info') and self._last_roi_info:
+            roi_info = self._last_roi_info['roi_info']
+            scalex = self._last_roi_info['scalex']
+            depth_um = self._last_roi_info['depth_um']
+            try:
+                current_z_plane = int(self.viewer.dims.current_step[2])
+            except Exception:
+                current_z_plane = 0
+            bacteria_dic = self.bac_dict
+            key = f"xy_Z_{current_z_plane}"
+            bac_found = len(bacteria_dic.get(key, []))
+            roi_area_um2 = roi_info['height_px'] * scalex * roi_info['width_px'] * scalex
+            analysis_text = [
+                "ROI Analysis:",
+                f"ROI height: {roi_info['height_px']*scalex:.2f} μm ({roi_info['height_px']} px)",
+                f"ROI width: {roi_info['width_px']*scalex:.2f} μm ({roi_info['width_px']} px)",
+                f"ROI area: {roi_area_um2:.2f} μm²",
+            ]
+            if depth_um > 0:
+                roi_volume_um3 = roi_area_um2 * depth_um
+                analysis_text.append(f"ROI volume: {roi_volume_um3:.2f} μm³")
+            analysis_text.append(f"Bacterial regions in current plane: {bac_found}")
+            self.analysis_info.setText("\n".join(analysis_text))
+            self.analysis_info.repaint()
         else:
-            self.analysis_info.setText(f"{self.analysis_info.text()}\n• Bacterial regions in current plane: N/A")
-    
+            try:
+                current_z_plane = int(self.viewer.dims.current_step[2])
+            except Exception:
+                current_z_plane = 0
+            bacteria_dic = self.bac_dict
+            key = f"xy_Z_{current_z_plane}"
+            bac_found = len(bacteria_dic.get(key, []))
+            curr_analysis = self.analysis_info.text().split("\n")
+            if curr_analysis and curr_analysis[-1].startswith("Bacterial regions in current plane"):
+                curr_analysis = curr_analysis[:-1]
+            curr_analysis.append(f"Bacterial regions in current plane: {bac_found}")
+            self.analysis_info.setText("\n".join(curr_analysis))
+            self.analysis_info.repaint()
+
     def clear_texts_and_labels(self):
         self.image_info.setText("")
         self.analysis_info.setText("")
@@ -410,3 +466,11 @@ class Find_Bacteria(QWidget):
         if self.instruction_window:
             self.instruction_window.close()
         super().closeEvent(event)
+
+    def on_layers_removed(self, event):
+        # Clear analysis info if both bounding box and mask layers are deleted
+        layer_names = [layer.name for layer in self.viewer.layers]
+        has_bbox = any(name.endswith("_Bounding box") or "_Bounding box" in name for name in layer_names)
+        has_mask = any(name.endswith("_Bacteria mask") or "_Bacteria mask" in name for name in layer_names)
+        if not has_bbox and not has_mask:
+            self.analysis_info.setText("")
