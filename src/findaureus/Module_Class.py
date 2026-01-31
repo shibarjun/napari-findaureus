@@ -3,6 +3,9 @@ from aicsimageio import AICSImage
 import czifile as cf
 import webcolors
 import cv2
+import torch
+import os
+from .Segment_Boxes import segment_and_get_bounding_boxes
 import xmltodict
 
 class ReadImage:
@@ -253,115 +256,27 @@ class ReadImage:
         self.data=data
         return (data)
 
-    def CreateBacteriaMask(input_image):
-        upper = int(np.max(input_image))
-        try:
-            lower = -np.log(0.001)*np.median(input_image) / np.log(2)
-        except ZeroDivisionError:
-            lower=()
-        bacteria_mask = cv2.inRange(input_image, lower, upper)
-        
-        return(bacteria_mask, lower)
+    # Statistical detection helpers removed — module now uses CNN-only pipeline
     
-    def MorphologicalOperations(bacteria_mask):
-        kernel = np.ones((3,3),np.uint8)
-        opening_bacteria_mask = cv2.morphologyEx(bacteria_mask, cv2.MORPH_OPEN, kernel)
-        numLabels, labeled_image = cv2.connectedComponents(opening_bacteria_mask)
-        labeled_image = np.uint8(labeled_image)
-        morphed_image = cv2.medianBlur(labeled_image,5)
-        
-        return(morphed_image)
-    
-    def FindingContours(input_morphed_image):
-        contours, hierarchy = cv2.findContours(input_morphed_image, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-        return(contours)
-    
-    def GetPixelWiseBacteriaCoordinates(input_morphed_image):
-        bac_pixel_coords = np.argwhere(input_morphed_image)
-        xy_pixelwise_coords = []
-        for p in bac_pixel_coords:
-            pxy = p[0], p[1]
-            xy_pixelwise_coords.append(pxy)
-        
-        return(xy_pixelwise_coords)
-    
-    def NonMaxSuppression(boxes, overlap_thresh):
-        if len(boxes) == 0:
-            return []
+    def FindBacteriaAndNoBacteria(imagelist, scalexy, model_path=None, model=None, input_shape=(25,25), min_probability=0.50, device=None, batch_size=32, iou_threshold=0.25):
+        """
+        Find bacteria using a CNN classifier applied to candidate regions produced by segmentation.
+        If `model` or `model_path` is provided the CNN pipeline is used. Otherwise falls back to
+        the original threshold/morphology-based method.
 
-        if isinstance(boxes, list):
-            boxes = np.array(boxes)
-        pick = []
-        x1 = boxes[:, 0]
-        y1 = boxes[:, 1]
-        x2 = boxes[:, 0] + boxes[:, 2]
-        y2 = boxes[:, 1] + boxes[:, 3]
-        area = boxes[:, 2] * boxes[:, 3]
-        idxs = np.argsort(y2)
+        Parameters:
+        - imagelist: list of 2D numpy arrays (one per z-plane)
+        - scalexy: tuple (scale_x, scale_y) in microns per pixel
+        - model_path: optional path to a torch saved state_dict or model
+        - model: optional already-constructed torch model
+        - input_shape: (width, height) for CNN input
+        - min_probability: threshold for positive detections
+        - device: torch device string or torch.device
+        - batch_size: inference batch size
+        - iou_threshold: IoU threshold for NMS
 
-
-        while len(idxs) > 0:
-
-            last = len(idxs) - 1
-            i = idxs[last]
-            pick.append(i)
-
-            xx1 = np.maximum(x1[i], x1[idxs[:last]])
-            yy1 = np.maximum(y1[i], y1[idxs[:last]])
-            xx2 = np.minimum(x2[i], x2[idxs[:last]])
-            yy2 = np.minimum(y2[i], y2[idxs[:last]])
-
-
-            w = np.maximum(0, xx2 - xx1 + 1)
-            h = np.maximum(0, yy2 - yy1 + 1)
-
-
-            overlap = (w * h) / area[idxs[:last]]
-
-
-            idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlap_thresh)[0])))
-
-
-        return boxes[pick]
-    
-    def MakeBoundingBoxWithCentroid(input_image, found_contour,scalexy):
-        centroid = []
-        area_list_um2 = []
-        boxes = []
-        bound_boxed_image = np.zeros_like(input_image)  # Create empty image instead of copying
-        
-        for cnt in found_contour:
-            scalex,scaley = scalexy
-            bac_dia = 0.5
-            contour_area = cv2.contourArea(cnt)
-            contour_area_um = (scalex*scaley)*(contour_area)
-            area_bac_um = np.pi*(bac_dia/2)**2
-            
-            if contour_area_um<=area_bac_um: 
-                continue
-            x, y, w, h = cv2.boundingRect(cnt)
-            
-            if w and h >= input_image.shape[0] and input_image.shape[1]:
-                break
-            boxes.append((x,y,w,h))
-       
-        selected_boxes = ReadImage.NonMaxSuppression(boxes, overlap_thresh=0.3)
-            
-        for box in selected_boxes:
-            x,y,w,h = box
-            # Draw white boxes (255) on black background (0)
-            cv2.rectangle(bound_boxed_image,(x,y),(x+w,y+h),255,1)
-            cx = int(x + 0.5 * w)
-            cy = int(y + 0.5 * h)
-            cxy = (cx,cy)
-            area_list_um2.append(contour_area_um)
-            centroid.append(cxy)
-        
-        coord_area_um2 = dict(zip(centroid,area_list_um2))
-        
-        return(bound_boxed_image, centroid, coord_area_um2)
-    
-    def FindBacteriaAndNoBacteria(imagelist, scalexy):
+        Returns same tuple as previous implementation.
+        """
         bac_image_list_mask = []
         bac_image_list = []
         no_bac_image_list = []
@@ -369,33 +284,168 @@ class ReadImage:
         bac_pixelwise_xy_coordinates = {}
         bac_centroid_xy_coordinates = {}
         bacteria_area = {}
-        for imageno in range(0,len(imagelist)):
-            locals()["xy_Z_"+format(imageno)] = []
-            locals()["p_xy_"+format(imageno)] = []
+
+        # setup device
+        if device is None:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        elif isinstance(device, str):
+            device = torch.device(device)
+
+        # default model path to packaged model in this package
+        if model_path is None:
+            model_path = os.path.join(os.path.dirname(__file__), 'BacteriaClassifier_ConvNetSimple.pt')
+
+        # load model
+        loaded_model = None
+        if model is not None:
+            loaded_model = model.to(device)
+            loaded_model.eval()
+        else:
+            try:
+                loaded_data = torch.load(model_path, map_location=device)
+                try:
+                    from .model_architecture import ConvNetSimple
+                    if isinstance(loaded_data, dict) and 'state_dict' in loaded_data:
+                        loaded_model = ConvNetSimple().to(device)
+                        loaded_model.load_state_dict(loaded_data['state_dict'])
+                    else:
+                        loaded_model = ConvNetSimple().to(device)
+                        loaded_model.load_state_dict(loaded_data)
+                except Exception:
+                    # try using loaded object directly (scripted model or saved module)
+                    if hasattr(loaded_data, 'eval'):
+                        loaded_model = loaded_data
+                    elif isinstance(loaded_data, dict) and 'model' in loaded_data:
+                        loaded_model = loaded_data['model']
+                if loaded_model is not None and hasattr(loaded_model, 'to'):
+                    loaded_model = loaded_model.to(device)
+                if hasattr(loaded_model, 'eval'):
+                    loaded_model.eval()
+                print(f"[findaureus] CNN model loaded from: {model_path}  (device={device})")
+            except Exception as e:
+                raise FileNotFoundError(f'Failed to load CNN model from {model_path}: {e}')
+
+        print(f"[findaureus] Starting CNN detection on {len(imagelist)} z-planes")
+        for imageno in range(0, len(imagelist)):
             input_image = imagelist[imageno]
-            mask_image, maskvalue_lower = ReadImage.CreateBacteriaMask(input_image)
-            if maskvalue_lower == ():
+
+            # CNN-only pipeline (statistical helpers removed)
+
+            # CNN path: get candidate boxes from segmentation helper
+            rectangles_sb, imagewithbox = segment_and_get_bounding_boxes(input_image)
+            print(f"[findaureus] z={imageno}: segmentation returned {len(rectangles_sb)} candidate boxes")
+            if len(rectangles_sb) == 0:
                 no_bac_image_list.append(input_image)
                 no_bac_image_name_list.append('z'+str(imageno))
+                # append empty mask and image for consistency
+                bac_image_list_mask.append(np.zeros_like(input_image))
+                bac_image_list.append(np.zeros_like(input_image))
+                bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)] = []
                 continue
-            morph_image = ReadImage.MorphologicalOperations(mask_image)
-            morph_image[morph_image>0]=255
-            bac_image_list_mask.append(morph_image)
-            contours_avaliable = ReadImage.FindingContours(morph_image)
-            bac_pixel_coordinates = ReadImage.GetPixelWiseBacteriaCoordinates(morph_image)
-            locals()["p_xy_"+format(imageno)].append(bac_pixel_coordinates)
-            bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)]=bac_pixel_coordinates
-            
-            bac_image,bac_centroid_coordinates,bact_area = ReadImage.MakeBoundingBoxWithCentroid(input_image, contours_avaliable,scalexy)
-            bac_image_list.append(bac_image)
-            if bac_centroid_coordinates == []:
-                no_bac_image_list.append(bac_image)
+
+            roi_tensors = []
+            roi_positions = []
+            for (x, y, w, h) in rectangles_sb:
+                roi = input_image[y:y + h, x:x + w]
+                if roi.size == 0:
+                    continue
+                resized_image = cv2.resize(roi, input_shape)
+                preprocessed_image = resized_image.astype(np.float32) / 255.0
+                roi_tensor = torch.tensor(preprocessed_image, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+                roi_tensors.append(roi_tensor)
+                roi_positions.append((x, y, x + w, y + h))
+
+            if not roi_tensors:
+                no_bac_image_list.append(input_image)
+                no_bac_image_name_list.append('z'+str(imageno))
+                bac_image_list_mask.append(np.zeros_like(input_image))
+                bac_image_list.append(np.zeros_like(input_image))
+                bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)] = []
+                continue
+            batch_tensor = torch.cat(roi_tensors, dim=0).to(device)
+            print(f"[findaureus] z={imageno}: running CNN inference on {batch_tensor.shape[0]} ROIs (batch_size={batch_size})")
+            num_rois = batch_tensor.shape[0]
+            all_probs = []
+            with torch.no_grad():
+                for i in range(0, num_rois, batch_size):
+                    mini = batch_tensor[i:i+batch_size]
+                    out = loaded_model(mini)
+                    out_np = out.cpu().numpy()
+                    # normalize outputs to probabilities
+                    if out_np.ndim == 2 and out_np.shape[1] == 2:
+                        # softmax and take class 1
+                        exp = np.exp(out_np - out_np.max(axis=1, keepdims=True))
+                        probs = exp[:,1] / exp.sum(axis=1)
+                    else:
+                        probs = out_np.flatten()
+                        if probs.min() < 0 or probs.max() > 1:
+                            probs = 1.0/(1.0 + np.exp(-probs))
+                    all_probs.append(probs)
+
+            all_probs = np.concatenate(all_probs, axis=0)
+            print(f"[findaureus] z={imageno}: inference produced {all_probs.shape[0]} probability scores")
+
+            # filter by threshold
+            rois = []
+            boxes = []
+            scores = []
+            for i, p in enumerate(all_probs):
+                if p > min_probability:
+                    x1, y1, x2, y2 = roi_positions[i]
+                    boxes.append([x1, y1, x2, y2])
+                    scores.append(p)
+            print(f"[findaureus] z={imageno}: {len(boxes)} ROIs above threshold {min_probability}")
+
+            kept_indices = []
+            if boxes:
+                boxes = np.array(boxes)
+                scores = np.array(scores)
+                order = np.argsort(scores)[::-1]
+                while len(order) > 0:
+                    i = order[0]
+                    kept_indices.append(i)
+                    if len(order) == 1:
+                        break
+                    xx1 = np.maximum(boxes[i, 0], boxes[order[1:], 0])
+                    yy1 = np.maximum(boxes[i, 1], boxes[order[1:], 1])
+                    xx2 = np.minimum(boxes[i, 2], boxes[order[1:], 2])
+                    yy2 = np.minimum(boxes[i, 3], boxes[order[1:], 3])
+                    w = np.maximum(0, xx2 - xx1 + 1)
+                    h = np.maximum(0, yy2 - yy1 + 1)
+                    inter = w * h
+                    area_i = (boxes[i,2] - boxes[i,0] + 1) * (boxes[i,3] - boxes[i,1] + 1)
+                    area_rest = (boxes[order[1:],2] - boxes[order[1:],0] + 1) * (boxes[order[1:],3] - boxes[order[1:],1] + 1)
+                    iou = inter / (area_i + area_rest - inter)
+                    inds = np.where(iou <= iou_threshold)[0]
+                    order = order[inds + 1]
+                print(f"[findaureus] z={imageno}: {len(kept_indices)} boxes kept after NMS (iou={iou_threshold})")
+
+            # build output images / masks
+            bound_boxed_image = np.zeros_like(input_image)
+            centroid = []
+            coord_area_um2 = {}
+            for idx in kept_indices:
+                x1, y1, x2, y2 = boxes[idx]
+                x1i, y1i, x2i, y2i = int(x1), int(y1), int(x2), int(y2)
+                cv2.rectangle(bound_boxed_image, (x1i, y1i), (x2i, y2i), 255, 1)
+                w = x2i - x1i
+                h = y2i - y1i
+                cx = int(x1i + 0.5 * w)
+                cy = int(y1i + 0.5 * h)
+                centroid.append((cx, cy))
+                # approximate area in um^2
+                contour_area_um = (scalexy[0] * scalexy[1]) * (w * h)
+                coord_area_um2[(cx, cy)] = contour_area_um
+
+            if centroid == []:
+                no_bac_image_list.append(bound_boxed_image)
                 no_bac_image_name_list.append('z'+str(imageno))
             else:
-                
-                locals()["xy_Z_"+format(imageno)].append(bac_centroid_coordinates)
-                bac_centroid_xy_coordinates["xy_Z_"+format(imageno)]= bac_centroid_coordinates
-                bacteria_area["xy_Z_"+format(imageno)]=bact_area
+                bac_image_list.append(bound_boxed_image)
+                bac_centroid_xy_coordinates["xy_Z_"+format(imageno)] = centroid
+                bacteria_area["xy_Z_"+format(imageno)] = coord_area_um2
+                bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)] = []
+                bac_image_list_mask.append(bound_boxed_image)
+
         no_bac_dict = dict(zip(no_bac_image_name_list, no_bac_image_list))
-        
-        return(bac_image_list,bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area)
+        return (bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area)
