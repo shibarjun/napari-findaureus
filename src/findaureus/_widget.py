@@ -240,7 +240,7 @@ class Find_Bacteria(QWidget):
 
         try:
             # Process image for bacteria detection
-            bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, _ = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy) # Original bacteria_area is per-contour
+            bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, _, bac_probability = ReadImage.FindBacteriaAndNoBacteria(image_list, scalexy) # Original bacteria_area is per-contour
 
             # Calculate bacteria area per Z-plane from the mask
             self.bacteria_area_per_z_plane = {}
@@ -274,7 +274,11 @@ class Find_Bacteria(QWidget):
 
             area_in_current_plane_um2 = self.bacteria_area_per_z_plane.get(current_z_plane_idx, 0)
             bac_count_in_current_plane = len(self.bac_dict.get(f"xy_Z_{current_z_plane_idx}", []))
-            bacteria_info_current_plane_str = f"Bacteria in current Z plane: {bac_count_in_current_plane} ({area_in_current_plane_um2:.2f} µm²)"
+            # Use mask-based area (µm²) for current Z plane and for totals
+            bacteria_info_current_plane_str = (
+                f"Bacteria in current Z plane: {bac_count_in_current_plane} objects; "
+                f"area (mask): {area_in_current_plane_um2:.2f} µm²"
+            )
 
             # If ROI is selected, show ROI info and bacterial regions in current z plane in analysis_info
             if roi_slices and roi_info:                
@@ -296,7 +300,7 @@ class Find_Bacteria(QWidget):
 
                 # Percentage calculation lines are removed from analysis_text population
 
-                analysis_text.append(bacteria_info_current_plane_str) # Z-specific info
+                analysis_text.append(bacteria_info_current_plane_str) # Z-specific info (mask-based area)
                 self.analysis_info.setText("\n".join(analysis_text)) # This was already correct for ROI case in the prompt, but the user's description mentioned the non-ROI case.
                 self.analysis_info.repaint()
                 self._last_roi_info = {
@@ -318,7 +322,7 @@ class Find_Bacteria(QWidget):
                     f"Total bacteria count: {total_bacteria_count}",
                     f"Total bacteria area (sum over Z): {total_bacteria_area_from_mask:.2f} µm²"
                 ]
-                analysis_text.append(bacteria_info_current_plane_str) # Z-specific info
+                analysis_text.append(bacteria_info_current_plane_str) # Z-specific info (mask-based area)
                 self.analysis_info.setText("\n".join(analysis_text))
                 self.analysis_info.repaint()
 
@@ -347,10 +351,11 @@ class Find_Bacteria(QWidget):
                 visible=True,
                 colormap='yellow'  # Make boxes more visible
             )
-            # Add mask with high contrast red highlights
+            # Add detection-probability layer using the bounding-box image
+            # (this image contains the probability text drawn by the detector)
             self.viewer.add_image(
-                bac_data_mask,
-                name=f"{current_layer.name}_Bacteria mask{suffix}", 
+                bac_data_bb,
+                name=f"{current_layer.name}_Bacteria detection probability{suffix}", 
                 scale=napari_layer_scale,
                 translate=napari_layer_translate,
                 opacity=1.0,
@@ -360,6 +365,22 @@ class Find_Bacteria(QWidget):
                 blending='additive',
                 visible=True
             )
+
+            # Add a dedicated "Bacteria mask" image layer (red) for easy toggling
+            # This shows the filled segmentation mask (solid red regions)
+            if bac_data_mask is not None:
+                self.viewer.add_image(
+                    bac_data_mask,
+                    name=f"{current_layer.name}_Bacteria mask{suffix}",
+                    scale=napari_layer_scale,
+                    translate=napari_layer_translate,
+                    opacity=0.65,
+                    colormap='red',
+                    contrast_limits=[1, 255],
+                    rendering='translucent',
+                    blending='additive',
+                    visible=True
+                )
 
             # Force update of analysis box for current z-plane
             self.on_active_layer_change()
@@ -443,7 +464,10 @@ class Find_Bacteria(QWidget):
 
         area_in_current_plane_um2 = self.bacteria_area_per_z_plane.get(current_z_plane_idx, 0)
         bac_count_in_current_plane = len(self.bac_dict.get(f"xy_Z_{current_z_plane_idx}", []))
-        bacteria_info_current_plane_str = f"Bacteria in current Z plane: {bac_count_in_current_plane} ({area_in_current_plane_um2:.2f} µm²)"
+        bacteria_info_current_plane_str = (
+            f"Bacteria in current Z plane: {bac_count_in_current_plane} objects; "
+            f"area (mask): {area_in_current_plane_um2:.2f} µm²"
+        )
 
         current_text = self.analysis_info.text()
 
@@ -456,7 +480,7 @@ class Find_Bacteria(QWidget):
         # and any completely empty or whitespace-only lines from the previous text.
         lines_without_z_info = [
             line for line in current_text.split('\n') # This was one of the issues identified
-            if line.strip() and not line.startswith("Bacteria in current Z plane:")
+            if line.strip() and not line.startswith("Bacteria in current Z plane:") and not line.startswith("Detection probabilities")
         ]
 
         # Append the new, updated Z-plane information line
@@ -498,7 +522,7 @@ class Find_Bacteria(QWidget):
                 "  - Press the 'Find Bacteria!' button in the widget.\n"
                 "  - If an ROI (Shapes layer) was active before selecting the image channel, analysis will be confined to that ROI.\n"
                 "  - Two new layers will be added to the viewer:\n"
-                "    - 'Bacteria mask': Highlights identified bacteria.\n"
+                "    - 'Bacteria detection probability': Highlights identified bacteria.\n"
                 "    - 'Bounding boxes': Places boxes around detected bacteria.\n"
                 "  - Analysis results (counts, area) will be displayed in the widget.\n\n"
                 "Step 5: Explore Results\n"
@@ -527,6 +551,6 @@ class Find_Bacteria(QWidget):
         # Clear analysis info if both bounding box and mask layers are deleted
         layer_names = [layer.name for layer in self.viewer.layers]
         has_bbox = any(name.endswith("_Bounding box") or "_Bounding box" in name for name in layer_names)
-        has_mask = any(name.endswith("_Bacteria mask") or "_Bacteria mask" in name for name in layer_names)
+        has_mask = any(name.endswith("_Bacteria detection probability") or "_Bacteria detection probability" in name for name in layer_names)
         if not has_bbox and not has_mask:
             self.analysis_info.setText("")

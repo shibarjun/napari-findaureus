@@ -258,7 +258,7 @@ class ReadImage:
 
     # Statistical detection helpers removed — module now uses CNN-only pipeline
     
-    def FindBacteriaAndNoBacteria(imagelist, scalexy, model_path=None, model=None, input_shape=(25,25), min_probability=0.50, device=None, batch_size=32, iou_threshold=0.25):
+    def FindBacteriaAndNoBacteria(imagelist, scalexy, model_path=None, model=None, input_shape=(25,25), min_probability=0.30, device=None, batch_size=32):
         """
         Find bacteria using a CNN classifier applied to candidate regions produced by segmentation.
         If `model` or `model_path` is provided the CNN pipeline is used. Otherwise falls back to
@@ -273,9 +273,9 @@ class ReadImage:
         - min_probability: threshold for positive detections
         - device: torch device string or torch.device
         - batch_size: inference batch size
-        - iou_threshold: IoU threshold for NMS
+        - (NMS removed) IoU threshold parameter removed; all boxes above `min_probability` are kept
 
-        Returns same tuple as previous implementation.
+        Returns same tuple as previous implementation, plus bacteria_probability scores.
         """
         bac_image_list_mask = []
         bac_image_list = []
@@ -284,6 +284,7 @@ class ReadImage:
         bac_pixelwise_xy_coordinates = {}
         bac_centroid_xy_coordinates = {}
         bacteria_area = {}
+        bacteria_probability = {}
 
         # setup device
         if device is None:
@@ -332,7 +333,7 @@ class ReadImage:
             # CNN-only pipeline (statistical helpers removed)
 
             # CNN path: get candidate boxes from segmentation helper
-            rectangles_sb, imagewithbox = segment_and_get_bounding_boxes(input_image)
+            rectangles_sb, imagewithbox, segmentation_mask = segment_and_get_bounding_boxes(input_image)
             print(f"[findaureus] z={imageno}: segmentation returned {len(rectangles_sb)} candidate boxes")
             if len(rectangles_sb) == 0:
                 no_bac_image_list.append(input_image)
@@ -398,36 +399,33 @@ class ReadImage:
 
             kept_indices = []
             if boxes:
+                # keep all boxes above threshold (no NMS)
                 boxes = np.array(boxes)
                 scores = np.array(scores)
-                order = np.argsort(scores)[::-1]
-                while len(order) > 0:
-                    i = order[0]
-                    kept_indices.append(i)
-                    if len(order) == 1:
-                        break
-                    xx1 = np.maximum(boxes[i, 0], boxes[order[1:], 0])
-                    yy1 = np.maximum(boxes[i, 1], boxes[order[1:], 1])
-                    xx2 = np.minimum(boxes[i, 2], boxes[order[1:], 2])
-                    yy2 = np.minimum(boxes[i, 3], boxes[order[1:], 3])
-                    w = np.maximum(0, xx2 - xx1 + 1)
-                    h = np.maximum(0, yy2 - yy1 + 1)
-                    inter = w * h
-                    area_i = (boxes[i,2] - boxes[i,0] + 1) * (boxes[i,3] - boxes[i,1] + 1)
-                    area_rest = (boxes[order[1:],2] - boxes[order[1:],0] + 1) * (boxes[order[1:],3] - boxes[order[1:],1] + 1)
-                    iou = inter / (area_i + area_rest - inter)
-                    inds = np.where(iou <= iou_threshold)[0]
-                    order = order[inds + 1]
-                print(f"[findaureus] z={imageno}: {len(kept_indices)} boxes kept after NMS (iou={iou_threshold})")
+                kept_indices = list(range(len(boxes)))
+                print(f"[findaureus] z={imageno}: {len(kept_indices)} boxes kept (no NMS applied)")
 
             # build output images / masks
             bound_boxed_image = np.zeros_like(input_image)
             centroid = []
             coord_area_um2 = {}
+            coord_prob = {}
             for idx in kept_indices:
                 x1, y1, x2, y2 = boxes[idx]
                 x1i, y1i, x2i, y2i = int(x1), int(y1), int(x2), int(y2)
+                
+                # Draw rectangle on the bounding box image
                 cv2.rectangle(bound_boxed_image, (x1i, y1i), (x2i, y2i), 255, 1)
+                
+                # Add probability text above the box
+                confidence = scores[idx]
+                text = f'{confidence*100:.1f}%'
+                # Get text size for better positioning
+                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)[0]
+                text_x = max(0, x1i)
+                text_y = max(text_size[1] + 2, y1i - 2)
+                cv2.putText(bound_boxed_image, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, 255, 1, cv2.LINE_AA)
+                
                 w = x2i - x1i
                 h = y2i - y1i
                 cx = int(x1i + 0.5 * w)
@@ -436,6 +434,8 @@ class ReadImage:
                 # approximate area in um^2
                 contour_area_um = (scalexy[0] * scalexy[1]) * (w * h)
                 coord_area_um2[(cx, cy)] = contour_area_um
+                # store probability score
+                coord_prob[(cx, cy)] = float(confidence)
 
             if centroid == []:
                 no_bac_image_list.append(bound_boxed_image)
@@ -444,8 +444,57 @@ class ReadImage:
                 bac_image_list.append(bound_boxed_image)
                 bac_centroid_xy_coordinates["xy_Z_"+format(imageno)] = centroid
                 bacteria_area["xy_Z_"+format(imageno)] = coord_area_um2
+                bacteria_probability["xy_Z_"+format(imageno)] = coord_prob
                 bac_pixelwise_xy_coordinates["p_xy_"+format(imageno)] = []
-                bac_image_list_mask.append(bound_boxed_image)
+                # Build a bacteria-shaped mask by copying the segmentation mask
+                final_mask = np.zeros_like(input_image, dtype=np.uint8)
+                try:
+                    box_sizes = []
+                    for idx in kept_indices:
+                        x1, y1, x2, y2 = boxes[idx]
+                        x1i, y1i, x2i, y2i = int(x1), int(y1), int(x2), int(y2)
+                        # copy the segmentation-derived filled contours within the box region
+                        roi_mask = segmentation_mask[y1i:y2i, x1i:x2i]
+                        if roi_mask.size:
+                            final_mask[y1i:y2i, x1i:x2i] = np.maximum(final_mask[y1i:y2i, x1i:x2i], roi_mask)
+                            box_sizes.append(max(1, x2i-x1i, y2i-y1i))
+
+                    # Ensure binary 0/255
+                    final_mask = (final_mask > 0).astype(np.uint8) * 255
+
+                    # If we have box sizes, choose a kernel proportional to average box size
+                    if box_sizes:
+                        avg_box = int(max(3, np.mean(box_sizes)))
+                        # kernel smaller than box but large enough to fill interior gaps
+                        k = max(3, int(max(3, avg_box // 6)))
+                        if k % 2 == 0:
+                            k += 1
+                    else:
+                        k = 7
+
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+                    # Close small holes and gaps, then dilate slightly to join fragments
+                    final_mask = cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+                    final_mask = cv2.dilate(final_mask, kernel, iterations=1)
+
+                    # If mask is still very sparse compared to union of boxes, fill boxes as fallback
+                    mask_pixels = np.count_nonzero(final_mask)
+                    union_box_area = 0
+                    for idx in kept_indices:
+                        x1, y1, x2, y2 = boxes[idx]
+                        union_box_area += max(0, int(x2 - x1)) * max(0, int(y2 - y1))
+
+                    if union_box_area > 0 and mask_pixels < 0.15 * union_box_area:
+                        for idx in kept_indices:
+                            x1, y1, x2, y2 = boxes[idx]
+                            x1i, y1i, x2i, y2i = int(x1), int(y1), int(x2), int(y2)
+                            final_mask[y1i:y2i, x1i:x2i] = 255
+
+                except Exception:
+                    # Fallback to bounding-box representation if something goes wrong
+                    final_mask = (bound_boxed_image > 0).astype(np.uint8) * 255
+
+                bac_image_list_mask.append(final_mask)
 
         no_bac_dict = dict(zip(no_bac_image_name_list, no_bac_image_list))
-        return (bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area)
+        return (bac_image_list, bac_image_list_mask, bac_centroid_xy_coordinates, no_bac_dict, bac_pixelwise_xy_coordinates, bacteria_area, bacteria_probability)

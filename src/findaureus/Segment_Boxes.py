@@ -25,28 +25,31 @@ def segment_and_get_bounding_boxes(image):
     # Find contours
     contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Filter contours by area and shape
-    min_contour_area = 40
-    max_contour_area = 1000
+    # Filter contours by area and shape (relaxed to capture small/clustered bacteria)
+    min_contour_area = 16    # lowered to include smaller objects
+    max_contour_area = 5000  # raised to allow larger clusters
     filtered_contours = []
-    
+
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if min_contour_area <= area <= max_contour_area:
-            # Check circularity/elongation to identify bacteria-like shapes
-            perimeter = cv2.arcLength(cnt, True)
-            if perimeter > 0:
-                circularity = 4 * np.pi * area / (perimeter * perimeter)
-                if 0.3 <= circularity <= 0.9:  # Typical bacteria shape range
-                    filtered_contours.append(cnt)
+        if area < min_contour_area or area > max_contour_area:
+            continue
+        # Check circularity/elongation to identify bacteria-like shapes
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter <= 0:
+            continue
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
+        # Relax circularity bounds to include elongated and clustered shapes
+        if 0.08 <= circularity <= 1.2:
+            filtered_contours.append(cnt)
     
     # Get bounding boxes
     bounding_boxes = []
     for cnt in filtered_contours:
         x, y, w, h = cv2.boundingRect(cnt)
         
-        # Add a smaller padding around the box
-        padding = 3
+        # Add padding around the box (proportional to box size)
+        padding = max(5, int(0.25 * max(w, h)))
         x = max(0, x - padding)
         y = max(0, y - padding)
         w = min(image.shape[1] - x, w + 2*padding)
@@ -62,38 +65,36 @@ def segment_and_get_bounding_boxes(image):
         # Convert to x1, y1, x2, y2 format for easier merging
         boxes = np.array([[x, y, x+w, y+h] for x, y, w, h in bounding_boxes])
         
-        # Find connected components of overlapping boxes
-        remaining_boxes = list(range(len(boxes)))
+        # Find connected components of overlapping or nearby boxes
+        # Expand boxes slightly before grouping so nearby boxes (close clusters) merge
+        merge_margin = 10
+        expanded = boxes.copy()
+        expanded[:, 0] = expanded[:, 0] - merge_margin
+        expanded[:, 1] = expanded[:, 1] - merge_margin
+        expanded[:, 2] = expanded[:, 2] + merge_margin
+        expanded[:, 3] = expanded[:, 3] + merge_margin
+
+        remaining_boxes = list(range(len(expanded)))
         merged_indices = []
-        
+
         while remaining_boxes:
-            # Start a new merged group
             current_group = [remaining_boxes[0]]
             remaining_boxes.pop(0)
-            
-            # Grow the group by adding all overlapping boxes
             i = 0
             while i < len(current_group):
                 idx = current_group[i]
                 j = 0
                 while j < len(remaining_boxes):
-                    # Check overlap between box idx and box j
-                    box1 = boxes[idx]
-                    box2 = boxes[remaining_boxes[j]]
-                    
-                    # Calculate intersection
+                    box1 = expanded[idx]
+                    box2 = expanded[remaining_boxes[j]]
                     x_overlap = max(0, min(box1[2], box2[2]) - max(box1[0], box2[0]))
                     y_overlap = max(0, min(box1[3], box2[3]) - max(box1[1], box2[1]))
-                    
                     if x_overlap > 0 and y_overlap > 0:
-                        # Boxes overlap, add to current group
                         current_group.append(remaining_boxes[j])
                         remaining_boxes.pop(j)
                     else:
                         j += 1
                 i += 1
-            
-            # Add the group to merged indices
             merged_indices.append(current_group)
         
         # For each connected component, create a single bounding box
@@ -117,4 +118,9 @@ def segment_and_get_bounding_boxes(image):
         x, y, w, h = box
         cv2.rectangle(image_with_boxes, (x, y), (x + w, y + h), (255, 0, 0), 1)
 
-    return merged_boxes, image_with_boxes
+    # Create a filled mask of the filtered contours (bacteria-like shapes)
+    mask = np.zeros_like(image, dtype=np.uint8)
+    if filtered_contours:
+        cv2.drawContours(mask, filtered_contours, -1, 255, thickness=cv2.FILLED)
+
+    return merged_boxes, image_with_boxes, mask
