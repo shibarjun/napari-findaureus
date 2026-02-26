@@ -121,6 +121,54 @@ def segment_and_get_bounding_boxes(image):
     # Create a filled mask of the filtered contours (bacteria-like shapes)
     mask = np.zeros_like(image, dtype=np.uint8)
     if filtered_contours:
-        cv2.drawContours(mask, filtered_contours, -1, 255, thickness=cv2.FILLED)
+        for cnt in filtered_contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+            # Work within a lightly padded ROI so dilation stays near the bacteria footprint
+            padding = max(2, int(0.05 * max(w, h)))
+            x0 = max(0, x - padding)
+            y0 = max(0, y - padding)
+            x1 = min(image.shape[1], x + w + padding)
+            y1 = min(image.shape[0], y + h + padding)
+
+            roi_shape = (y1 - y0, x1 - x0)
+            if roi_shape[0] <= 0 or roi_shape[1] <= 0:
+                continue
+
+            local_mask = np.zeros(roi_shape, dtype=np.uint8)
+
+            # Shift contour into ROI coordinate space and draw its convex hull to cover full bacteria
+            shifted_cnt = cnt.copy()
+            shifted_cnt[:, 0, 0] -= x0
+            shifted_cnt[:, 0, 1] -= y0
+            hull = cv2.convexHull(shifted_cnt)
+            cv2.drawContours(local_mask, [hull], -1, 255, thickness=cv2.FILLED)
+
+            # Dilate/close inside the ROI to include faint edges without filling the entire box
+            kernel_size = max(3, int(0.15 * max(w, h)))
+            if kernel_size % 2 == 0:
+                kernel_size += 1
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+            local_mask = cv2.morphologyEx(local_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+            # Limit coverage to the segmented foreground (plus a small dilation) to avoid filling entire box
+            segment_roi = binary_image[y0:y1, x0:x1]
+            if segment_roi.size:
+                limiter_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (max(3, kernel_size - 2), max(3, kernel_size - 2)))
+                segment_limit = cv2.dilate(segment_roi, limiter_kernel, iterations=1)
+                local_mask = cv2.bitwise_and(local_mask, segment_limit)
+
+            # If mask is still almost as large as the ROI, erode slightly to keep it specific
+            roi_area = (x1 - x0) * (y1 - y0)
+            mask_pixels = int(cv2.countNonZero(local_mask))
+            if roi_area > 0 and mask_pixels > 0.75 * roi_area:
+                tighten_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                local_mask = cv2.erode(local_mask, tighten_kernel, iterations=1)
+
+            # Merge ROI result back into the full-resolution mask
+            mask[y0:y1, x0:x1] = np.maximum(mask[y0:y1, x0:x1], local_mask)
+
+        # Light smoothing keeps edges clean without erasing coverage
+        smooth_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, smooth_kernel, iterations=1)
 
     return merged_boxes, image_with_boxes, mask
