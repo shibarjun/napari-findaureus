@@ -294,7 +294,7 @@ class ReadImage:
 
         # default model path to packaged model in this package
         if model_path is None:
-            model_path = os.path.join(os.path.dirname(__file__), 'BacteriaClassifier_ConvNetSimple.pt')
+            model_path = os.path.join(os.path.dirname(__file__), '/media/shibarjun/D/Python Scripts/BactAI Models/Working/BacteriaClassifier_ConvNetSimple.pt')
 
         # load model
         loaded_model = None
