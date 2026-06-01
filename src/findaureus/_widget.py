@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 from .Module_Class import *
 import napari.layers
 import os
-import pkg_resources
+import importlib.resources as resources
 import numpy as np
 
 if TYPE_CHECKING:
@@ -45,8 +45,8 @@ class Find_Bacteria(QWidget):
         content_layout_1 = QHBoxLayout(content_widget_1)
         
         ##findauresu icon
-        icon_fa_path = pkg_resources.resource_filename('findaureus', 'resources/application_icon.png')
-        icon_fa = QPixmap(icon_fa_path)
+        icon_fa_path = resources.files('findaureus').joinpath('resources', 'application_icon.png')
+        icon_fa = QPixmap(str(icon_fa_path))
         icon_fa = icon_fa.scaled(64, 64)
         fa_widget = QLabel()
         fa_widget.setPixmap(icon_fa)
@@ -67,8 +67,8 @@ class Find_Bacteria(QWidget):
         content_layout_2 = QHBoxLayout(content_widget_2)
 
         ##github icon
-        icon_gh_path = pkg_resources.resource_filename('findaureus', 'resources/GitHub-Mark-Light-32px.png')
-        icon_gh = QPixmap(icon_gh_path)
+        icon_gh_path = resources.files('findaureus').joinpath('resources', 'GitHub-Mark-Light-32px.png')
+        icon_gh = QPixmap(str(icon_gh_path))
         gh_widget = QLabel()
         gh_widget.setPixmap(icon_gh)
         gh_widget.setCursor(QCursor(Qt.PointingHandCursor))

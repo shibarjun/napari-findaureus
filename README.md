@@ -1,6 +1,8 @@
 # napari-findaureus
 
-"Findaureus" is now available to use in napari.
+Findaureus is a napari plugin that locates Staphylococcus aureus (bacteria) in fluorescence-labelled infected bone tissue images acquired with confocal laser scanning microscopy (CLSM).
+
+Compatibility: Python 3.9–3.11 and recent napari releases. The package aims to work with modern napari/Qt stacks; if you encounter compatibility issues, consider creating a fresh environment with a supported Python version.
 <p align="center">
 <img src="https://raw.githubusercontent.com/shibarjun/napari-findaureus/main/docs/napari-findaureus.png" />
 </p>
@@ -9,33 +11,35 @@ Findaureus is a tool designed to identify bacteria in infected bone tissue image
 
 ----------------------------------
 ## Installation
-### Windows/Linux
-If you don’t have conda installed, you can get miniconda or Anaconda from their websites.
-1. Open your command line tool and run these commands to create and activate a conda environment:
-```
-conda create -n napari-findaureus python=3.9
+### Installation (Linux / macOS / Windows)
+
+Recommended: create a fresh conda environment using a supported Python version (3.9–3.11):
+
+```bash
+conda create -n napari-findaureus python=3.10
 conda activate napari-findaureus
-```
-2. Install napari and napari-findaureus with this command:
-```
 pip install "napari[all]" napari-findaureus
 ```
-### macOS
-1. Create an environment with napari and pyqt5
-```
-conda create -n napari-findaureus -c conda-forge python=3.9 pyqt imagecodecs napari
-```
-2. Install the napari-findaureus plugin
-```
-pip install napari-findaureus
-```
+
+On macOS you may prefer to install `pyqt` from conda-forge before installing napari.
 
 ## Start napari-findaureus
-Launch napari from the terminal while the napari-findaureus environment is running.
-```
+Launch napari from the environment where the plugin is installed:
+
+```bash
 napari
 ```
-To launch the napari plugin, go to “Plugins” and select “napari-findaureus”.
+
+Open the Plugins menu and select `napari-findaureus` (or use the plugin manager). The plugin provides a widget that:
+
+- Displays basic image metadata (dimensions, scale, estimated physical size).
+- Allows optional ROI selection using a Napari `Shapes` layer; analysis will be confined to the ROI.
+- Detects and highlights bacteria by adding two layers to the viewer:
+	- a `Bacteria mask` image layer (pixelwise mask)
+	- a `Bounding box` image layer (detected object outlines)
+- Shows counts and area measurements per Z-plane and summarized over the ROI or full image.
+
+Use the `Instruction` button in the widget for a step-by-step guide, and press `Reset` to clear results before analyzing another image.
 ## Quick demo
 To use the `napari-findaureus` plugin, please follow the steps below:
 
