@@ -1,57 +1,66 @@
 # napari-findaureus
 
-"Findaureus" is now available to use in napari.
+napari-findaureus is a napari plugin that locates *Staphylococcus aureus* (bacteria) in fluorescence-labelled infected bone tissue images acquired with confocal laser scanning microscopy (CLSM).
+
+Compatibility: Python 3.9–3.11 and recent napari releases. The package aims to work with modern napari/Qt stacks; if you encounter compatibility issues, consider creating a fresh environment with a supported Python version.
 <p align="center">
-<img src="https://raw.githubusercontent.com/shibarjun/napari-findaureus/main/docs/napari-findaureus.png" />
+<img src="docs/napari-findaureus.png" />
 </p>
 
-Findaureus is a tool designed to identify bacteria in infected bone tissue images obtained via Confocal Laser Scanning Microscopy (CLSM). This tool can be accessed independently [here](https://github.com/shibarjun/Findaureus). Findaureus has been integrated as a plugin for napari. In addition to its bacteria-locating algorithm, the napari viewer provides improved visualization features, in 2D and 3D perspectives.
+Findaureus is a tool designed to identify bacteria in infected bone tissue images obtained via Confocal Laser Scanning Microscopy (CLSM). This tool can be accessed independently [here](https://github.com/shibarjun/Findaureus). Findaureus has been integrated as a plugin for napari. In addition to its bacteria-locating algorithm, the napari viewer provides enhanced 2D and 3D visualization, region-of-interest-based bacteria finding with relevant stats in the widget, and an `Export results` button to save analysis summaries.
 
 ----------------------------------
 ## Installation
-### Windows/Linux
-If you don’t have conda installed, you can get miniconda or Anaconda from their websites.
-1. Open your command line tool and run these commands to create and activate a conda environment:
-```
-conda create -n napari-findaureus python=3.9
+Recommended: create a fresh conda environment using Python 3.11 and install napari in that environment.
+
+Linux / Windows:
+
+```bash
+conda create -n napari-findaureus python=3.11
 conda activate napari-findaureus
-```
-2. Install napari and napari-findaureus with this command:
-```
 pip install "napari[all]" napari-findaureus
 ```
-### macOS
-1. Create an environment with napari and pyqt5
-```
-conda create -n napari-findaureus -c conda-forge python=3.9 pyqt imagecodecs napari
-```
-2. Install the napari-findaureus plugin
-```
-pip install napari-findaureus
+
+macOS:
+
+```bash
+conda create -n napari-findaureus python=3.11
+conda activate napari-findaureus
+conda install -c conda-forge pyqt
+pip install "napari[all]" napari-findaureus
 ```
 
-## Start napari-findaureus
-Launch napari from the terminal while the napari-findaureus environment is running.
-```
+If you do not already have a suitable test image, download sample data from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.8411791)
+
+## Using napari-findaureus
+1. Launch napari from the activated environment:
+
+```bash
 napari
 ```
-To launch the napari plugin, go to “Plugins” and select “napari-findaureus”.
-## Quick demo
-To use the `napari-findaureus` plugin, please follow the steps below:
 
-1. First, download some relevant fluorescence-labeled images of infected mouse bone tissues from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.8411791).
-2. Next, load the image file through the `napari-findaureus` plugin.
-3. Navigate to the “Plugins” menu and select the `napari-findaureus` option to activate the widget.
-4. In the viewer, identify the bacteria channel from the "layer list," which is specified in the image file name, and select it.
-5. Once the bacteria channel is selected, click on the `Find bacteria!` button.
-6. The widget will display the image-related data and bacteria count. If you need additional help, click on the `Instruction` button in the widget.
-7. Before you proceed to another image, reset the viewer by clicking on the `Reset` button provided in the widget.
+2. Open your image in napari using `File > Open` or by drag-and-drop.
+   - If you do not have an image, download it from Zenodo and open it in napari.
 
-<p align="center">
-<img src="https://raw.githubusercontent.com/shibarjun/napari-findaureus/main/docs/napari-findaureus.gif" />
-</p>
+3. Open `Plugins > napari-findaureus` to display the plugin widget.
 
-Enjoy exploring the fascinating world of bacteria in mouse bone tissues!
+4. From the napari `layer list` panel select the correct bacteria channel or layer for analysis.
+
+5. Optional ROI analysis:
+   - Draw a region of interest using the `Shapes` layer.
+   - The analysis will be restricted to the selected ROI when a shape is active.
+
+6. Click `Find bacteria!` to run the detection.
+
+7. Review the results:
+   - `Bacteria mask` layer for pixel-wise segmentation
+   - `Bounding box` layer for detected objects
+   - Counts and area measurements per Z-plane and for the selected ROI or full image
+   - Use the `Export results` button (below the Analysis Results box) to save a compact TXT or CSV containing image info and per‑Z‑plane bacteria counts and areas.
+
+8. Use `Reset` to clear results before analyzing another image or ROI.
+
+9. Use the `Instruction` button in the widget for built-in guidance.
 
 ----------------------------------
 ## Contributing
