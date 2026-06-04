@@ -51,19 +51,23 @@ def reader_function(path: PathOrPaths) -> "napari.types.LayerDataTuple":
         else:
             colormaps.append('gray')
     
+    # store the source path in layer metadata so the widget can display filename
+    src_path = path[0] if isinstance(path, (list, tuple)) else path
     if image_dict["scaling_zxy"][0] == 0:
         layer_attributes = {
             "scale": image_dict["scaling_zxy"][1:],
             "channel_axis": 2,
             "name": concatenated_names,
-            "colormap": colormaps
+            "colormap": colormaps,
+            "metadata": {"path": src_path}
         }
     else:
         layer_attributes = {
             "scale": image_dict["scaling_zxy"],
             "channel_axis": 2,
             "name": concatenated_names,
-            "colormap": colormaps
+            "colormap": colormaps,
+            "metadata": {"path": src_path}
         }
     
     layer_type = "image"

@@ -2,13 +2,14 @@ from typing import TYPE_CHECKING
 from .Module_Class import *
 import napari.layers
 import os
+import csv
 import importlib.resources as resources
 import numpy as np
 
 if TYPE_CHECKING:
     import napari
 
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout, QTextEdit, QDialog, QSizePolicy
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QPlainTextEdit, QHBoxLayout, QTextEdit, QDialog, QSizePolicy, QFileDialog, QMessageBox
 from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QFont, QPixmap, QCursor, QDesktopServices
 
@@ -20,6 +21,7 @@ class Find_Bacteria(QWidget):
         super().__init__()
         self.viewer = napari_viewer
         self.analysis_active = False  # Add this flag
+        self._latest_analysis_data = None
         self.init_ui()
         # Check for active layer on startup
         if len(self.viewer.layers) > 0:
@@ -107,9 +109,12 @@ class Find_Bacteria(QWidget):
         self.general_info_label.setStyleSheet("font-weight: bold; border: none;")
         info_layout.addWidget(self.general_info_label)
 
-        self.image_info = QLabel("")
+        self.image_info = QPlainTextEdit()
+        self.image_info.setReadOnly(True)
         self.image_info.setFont(labelfont)
         self.image_info.setStyleSheet("border: none;")
+        self.image_info.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        self.image_info.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         info_layout.addWidget(self.image_info)
         
         info_container.setLayout(info_layout)
@@ -127,14 +132,22 @@ class Find_Bacteria(QWidget):
         self.analysis_label.setStyleSheet("font-weight: bold; border: none;")
         analysis_layout.addWidget(self.analysis_label)
         
-        self.analysis_info = QLabel("No analysis performed yet")
+        self.analysis_info = QPlainTextEdit()
+        self.analysis_info.setReadOnly(True)
         self.analysis_info.setFont(labelfont)
         self.analysis_info.setStyleSheet("border: none;")
-        self.analysis_info.setWordWrap(True)
-        self.analysis_info.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.analysis_info.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        self.analysis_info.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.analysis_info.setPlainText("No analysis performed yet")
         analysis_layout.addWidget(self.analysis_info)
         
         layout.addWidget(self.analysis_container)
+
+        self.export_button = QPushButton("Export results")
+        self.export_button.setFont(buttonfont)
+        self.export_button.setEnabled(False)
+        self.export_button.clicked.connect(self.export_results)
+        layout.addWidget(self.export_button, alignment=Qt.AlignRight)
 
         self.setLayout(layout)
         self.instruction_window = None
@@ -186,20 +199,26 @@ class Find_Bacteria(QWidget):
 
     def FindBacteria(self) -> "napari.types.LayerDataTuple":
         self.analysis_active = True  # Set flag when analysis starts
+        self.export_button.setEnabled(False)
+        self._latest_analysis_data = None
         current_layer = self.viewer.layers.selection.active
         if current_layer is None:
-            self.analysis_info.setText("No layer selected")
+            self.analysis_info.setPlainText("No layer selected")
             self.analysis_active = False  # Reset flag if no layer is selected
+            self.export_button.setEnabled(False)
+            self._latest_analysis_data = None
             return
 
         # Check if the selected layer is a Shapes layer
         if isinstance(current_layer, napari.layers.Shapes):
-            self.analysis_info.setText(
+            self.analysis_info.setPlainText(
                 "ROI Selection Active:\n"
                 "After selecting the desired shape for your ROI, "
                 "please select the image channel containing bacteria and then press 'Find bacteria!' again."
             )
             self.analysis_active = False # Reset flag as analysis is not proceeding
+            self.export_button.setEnabled(False)
+            self._latest_analysis_data = None
             return
 
         # Get ROI if selected
@@ -215,7 +234,7 @@ class Find_Bacteria(QWidget):
         napari_layer_translate = (0, 0, 0, 0, 0) # Default T,C,Z,Y,X translation
 
         # Set analysis info to "Processing..." while running
-        self.analysis_info.setText("Processing...")
+        self.analysis_info.setPlainText("Processing...")
         self.analysis_info.repaint()  # Force immediate update
 
         # Crop to ROI if present
@@ -259,9 +278,7 @@ class Find_Bacteria(QWidget):
                     else:
                         self.bacteria_area_per_z_plane[z_idx] = 0
             
-            # Convert results for napari display
-            bac_data_mask = Find_Bacteria.for_napari(bac_image_list_mask if bac_image_list_mask is not None else [])
-            bac_data_bb = Find_Bacteria.for_napari(bac_image_list if bac_image_list is not None else [])
+            # Results will be converted for napari display below when present
             self.bac_dict = bac_centroid_xy_coordinates
             # Calculate total bacteria count
             total_bacteria_count = sum(len(coords) for coords in bac_centroid_xy_coordinates.values())
@@ -297,7 +314,7 @@ class Find_Bacteria(QWidget):
                 # Percentage calculation lines are removed from analysis_text population
 
                 analysis_text.append(bacteria_info_current_plane_str) # Z-specific info
-                self.analysis_info.setText("\n".join(analysis_text)) # This was already correct for ROI case in the prompt, but the user's description mentioned the non-ROI case.
+                self.analysis_info.setPlainText("\n".join(analysis_text))
                 self.analysis_info.repaint()
                 self._last_roi_info = {
                     'roi_info': roi_info,
@@ -319,8 +336,31 @@ class Find_Bacteria(QWidget):
                     f"Total bacteria area (sum over Z): {total_bacteria_area_from_mask:.2f} µm²"
                 ]
                 analysis_text.append(bacteria_info_current_plane_str) # Z-specific info
-                self.analysis_info.setText("\n".join(analysis_text))
+                self.analysis_info.setPlainText("\n".join(analysis_text))
                 self.analysis_info.repaint()
+
+            # store analysis export data
+            self._latest_analysis_data = {
+                'file_name': self.get_layer_filename(current_layer),
+                'channel_name': current_layer.name,
+                'image_height_px': current_layer.data.shape[2],
+                'image_width_px': current_layer.data.shape[3],
+                'scale_z': scalez,
+                'scale_y': scalex,
+                'scale_x': scaley,
+                'roi': bool(roi_slices and roi_info),
+                'roi_info': roi_info,
+                'total_bacteria_count': total_bacteria_count,
+                'total_bacteria_area_um2': total_bacteria_area_from_mask,
+                'z_plane_count': len(image_list),
+                'bacteria_area_per_z_plane': self.bacteria_area_per_z_plane,
+                'bac_centroid_xy_coordinates': bac_centroid_xy_coordinates,
+                'no_bac_dict': no_bac_dict,
+                'roi_tracking': {
+                    'num_z_planes': num_z_planes_in_roi_local if roi_slices and roi_info else len(image_list)
+                }
+            }
+            self.export_button.setEnabled(True)
 
             # Connect Z-plane change event for 3D images
             try:
@@ -333,53 +373,93 @@ class Find_Bacteria(QWidget):
 
             # Add processed layers with transparency
             suffix = "_ROI" if roi_slices else ""
-            # Create bounding box layer with only the boxes visible
-            self.viewer.add_image(
-                bac_data_bb, 
-                name=f"{current_layer.name}_Bounding box{suffix}", 
-                scale=napari_layer_scale,
-                translate=napari_layer_translate,
-                opacity=1.0,
-                contrast_limits=[254, 255],  # Only show the bright box lines
-                gamma=1.0,
-                rendering='translucent',
-                blending='additive',
-                visible=True,
-                colormap='yellow'  # Make boxes more visible
-            )
-            # Add mask with high contrast red highlights
-            self.viewer.add_image(
-                bac_data_mask,
-                name=f"{current_layer.name}_Bacteria mask{suffix}", 
-                scale=napari_layer_scale,
-                translate=napari_layer_translate,
-                opacity=1.0,
-                colormap='red',
-                contrast_limits=[128, 255],
-                rendering='translucent',
-                blending='additive',
-                visible=True
-            )
+            bbox_name = f"{current_layer.name}_Bounding box{suffix}"
+            mask_name = f"{current_layer.name}_Bacteria mask{suffix}"
+
+            # Add bounding box layer only if bacteria centroids were detected
+            if total_bacteria_count > 0 and bac_image_list and len(bac_image_list) > 0:
+                bbox_layer = Find_Bacteria.for_napari(bac_image_list)
+                self._bbox_layer_name = bbox_name
+                self.viewer.add_image(
+                    bbox_layer,
+                    name=bbox_name,
+                    scale=napari_layer_scale,
+                    translate=napari_layer_translate,
+                    opacity=1.0,
+                    gamma=1.0,
+                    rendering='translucent',
+                    blending='additive',
+                    visible=True,
+                    colormap='yellow'
+                )
+
+            # Add mask layer only if we have masks
+            if bac_image_list_mask and len(bac_image_list_mask) > 0:
+                mask_layer = Find_Bacteria.for_napari(bac_image_list_mask)
+                self._mask_layer_name = mask_name
+                self.viewer.add_image(
+                    mask_layer,
+                    name=mask_name,
+                    scale=napari_layer_scale,
+                    translate=napari_layer_translate,
+                    opacity=1.0,
+                    colormap='red',
+                    contrast_limits=[128, 255],
+                    rendering='translucent',
+                    blending='additive',
+                    visible=True
+                )
 
             # Force update of analysis box for current z-plane
             self.on_active_layer_change()
 
         except Exception as e:
-            self.analysis_info.setText(f"Error during analysis: {str(e)}")
+            self.analysis_info.setPlainText(f"Error during analysis: {str(e)}")
             self.analysis_info.repaint()
             self.analysis_active = False  # Reset flag on error
+            self.export_button.setEnabled(False)
+            self._latest_analysis_data = None
             return
 
     def reset_viewer_and_widget(self):
-        self.viewer.layers.select_all()
-        self.viewer.layers.remove_selected()
-        
+        # Temporarily disable Qt canvas updates to avoid race conditions
+        # where VisPy/napari tries to redraw while layers are being removed.
+        canvas_native = None
+        try:
+            canvas = getattr(self.viewer.window, 'qt_viewer', None)
+            if canvas is not None:
+                canvas_native = getattr(canvas, 'canvas', None)
+                if canvas_native is not None:
+                    # `native` is the underlying Qt widget
+                    try:
+                        canvas_native.native.setUpdatesEnabled(False)
+                    except Exception:
+                        pass
+
+            # Remove layers (selection -> remove) while updates are paused
+            self.viewer.layers.select_all()
+            self.viewer.layers.remove_selected()
+
+        finally:
+            # Re-enable canvas updates and request a repaint
+            try:
+                if canvas_native is not None:
+                    try:
+                        canvas_native.native.setUpdatesEnabled(True)
+                        canvas_native.native.update()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
         try:
             self.viewer.dims.events.current_step.disconnect(self.on_active_layer_change)
         except (TypeError, RuntimeError):
             pass
-            
+
         self.analysis_active = False  # Reset flag when resetting widget
+        self.export_button.setEnabled(False)
+        self._latest_analysis_data = None
         self.clear_texts_and_labels()
 
     def for_raw_layer(active_layer):
@@ -391,13 +471,43 @@ class Find_Bacteria(QWidget):
         depth_um, layer_height_um, layer_width_um = z_layer*scalez, layer_height_px*scalex, layer_width_px*scaley
         return(layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um,scalex)
     
+    def get_layer_filename(self, layer):
+        """Try several places to extract a filename for display in the widget."""
+        try:
+            # Check common metadata keys
+            if hasattr(layer, 'metadata') and isinstance(layer.metadata, dict):
+                for key in ('path', 'source', 'filename', 'file_name', 'image.path', 'uri', 'URI'):
+                    if key in layer.metadata:
+                        val = layer.metadata[key]
+                        if isinstance(val, (list, tuple)) and val:
+                            val = val[0]
+                        if isinstance(val, str) and val:
+                            return os.path.basename(val)
+
+            # Check layer.source
+            src = getattr(layer, 'source', None)
+            if isinstance(src, (list, tuple)) and src:
+                src = src[0]
+            if isinstance(src, str) and src:
+                return os.path.basename(src)
+
+            # Fall back to layer.name if it looks like a filename
+            name = getattr(layer, 'name', '')
+            if isinstance(name, str) and '.' in name and len(name.split('.')[-1]) <= 6:
+                return name
+        except Exception:
+            pass
+        return 'Unknown'
+    
     def update_image_info(self, layer, roi_info=None):
         try:
             layer_name, layer_height_um, layer_height_px, layer_width_um, layer_width_px, depth_um, scalex = Find_Bacteria.for_raw_layer(layer)
+            filename = self.get_layer_filename(layer)
             # If ROI info is provided, use ROI dimensions for area/volume
             if roi_info:
                 roi_area_um2 = roi_info['height_px'] * scalex * roi_info['width_px'] * scalex
                 info_text = (
+                    f"File: {filename}\n"
                     f"Channel selected: {layer_name}\n"
                     f"ROI height: {roi_info['height_px']*scalex:.2f} μm ({roi_info['height_px']} px)\n"
                     f"ROI width: {roi_info['width_px']*scalex:.2f} μm ({roi_info['width_px']} px)\n"
@@ -410,6 +520,7 @@ class Find_Bacteria(QWidget):
             else:
                 area_um2 = layer_height_um * layer_width_um
                 info_text = (
+                    f"File: {filename}\n"
                     f"Channel selected: {layer_name}\n"
                     f"Image height: {layer_height_um:.2f} μm ({layer_height_px} px)\n"
                     f"Image width: {layer_width_um:.2f} μm ({layer_width_px} px)\n"
@@ -421,7 +532,7 @@ class Find_Bacteria(QWidget):
                 if depth_um > 0 and z_layer_count > 1:
                     volume_um3 = area_um2 * depth_um
                     info_text += f"\nImage volume: {volume_um3:.2f} μm³"
-            self.image_info.setText(info_text)
+                self.image_info.setPlainText(info_text)
         except Exception:
             pass
 
@@ -429,7 +540,7 @@ class Find_Bacteria(QWidget):
         active_layer = event.value
         self.update_image_info(active_layer)
         if not self.analysis_active:  # Only reset if no analysis is active
-            self.analysis_info.setText("No analysis performed yet")
+            self.analysis_info.setPlainText("No analysis performed yet")
             
     def on_active_layer_change(self):
         if not self.analysis_active or not hasattr(self, 'bac_dict') or \
@@ -445,7 +556,7 @@ class Find_Bacteria(QWidget):
         bac_count_in_current_plane = len(self.bac_dict.get(f"xy_Z_{current_z_plane_idx}", []))
         bacteria_info_current_plane_str = f"Bacteria in current Z plane: {bac_count_in_current_plane} ({area_in_current_plane_um2:.2f} µm²)"
 
-        current_text = self.analysis_info.text()
+        current_text = self.analysis_info.toPlainText()
 
         if "No analysis performed yet" == current_text.strip():
             # If the text is *only* the placeholder, do nothing.
@@ -462,13 +573,98 @@ class Find_Bacteria(QWidget):
         # Append the new, updated Z-plane information line
         lines_without_z_info.append(bacteria_info_current_plane_str)
         
-        self.analysis_info.setText("\n".join(lines_without_z_info))
+        self.analysis_info.setPlainText("\n".join(lines_without_z_info))
         self.analysis_info.repaint()
 
     def clear_texts_and_labels(self):
-        self.image_info.setText("")
-        self.analysis_info.setText("")
+        self.image_info.setPlainText("")
+        self.analysis_info.setPlainText("")
         
+    def export_results(self):
+        if not self._latest_analysis_data:
+            QMessageBox.warning(self, "Export results", "No analysis results available to export.")
+            return
+
+        data = self._latest_analysis_data
+        default_name = data.get('file_name', 'analysis_results')
+        default_name = os.path.splitext(default_name)[0] + '_analysis'
+        save_path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Save analysis results",
+            default_name,
+            "Text Files (*.txt);;CSV Files (*.csv)"
+        )
+        if not save_path:
+            return
+
+        ext = os.path.splitext(save_path)[1].lower()
+        if not ext:
+            ext = '.txt' if 'Text' in selected_filter else '.csv'
+            save_path += ext
+
+        try:
+            if ext == '.csv':
+                self._save_results_csv(save_path, data)
+            else:
+                self._save_results_txt(save_path, data)
+            QMessageBox.information(self, "Export results", f"Export saved to {save_path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Export results", f"Unable to save file: {exc}")
+
+    def _build_export_lines(self, data):
+        lines = []
+        lines.append("Image Information:")
+        lines.append(f"File: {data.get('file_name', 'Unknown')}")
+        lines.append(f"Channel selected: {data.get('channel_name', 'Unknown')}")
+        image_height_um = data.get('image_height_px', 0) * data.get('scale_y', 1)
+        image_width_um = data.get('image_width_px', 0) * data.get('scale_x', 1)
+        depth_um = data.get('z_plane_count', 0) * data.get('scale_z', 1)
+        if data.get('roi') and data.get('roi_info'):
+            roi_info = data['roi_info']
+            lines.append(f"ROI height: {roi_info['height_px'] * data.get('scale_y', 1):.2f} μm ({roi_info['height_px']} px)")
+            lines.append(f"ROI width: {roi_info['width_px'] * data.get('scale_x', 1):.2f} μm ({roi_info['width_px']} px)")
+            lines.append(f"ROI area: {roi_info['height_px'] * roi_info['width_px'] * data.get('scale_y', 1) * data.get('scale_x', 1):.2f} μm²")
+            lines.append(f"ROI depth (Z planes): {data.get('z_plane_count', 0)}")
+        else:
+            lines.append(f"Image height: {image_height_um:.2f} μm ({data.get('image_height_px', 0)} px)")
+            lines.append(f"Image width: {image_width_um:.2f} μm ({data.get('image_width_px', 0)} px)")
+            lines.append(f"Image depth: {depth_um:.2f} μm")
+            lines.append(f"Image area: {image_height_um * image_width_um:.2f} μm²")
+            if data.get('scale_y', 0) > 0:
+                lines.append(f"Image resolution: {round(1 / data.get('scale_y', 1))} pixels per μm")
+        lines.append("")
+        lines.append("Bacteria Analysis:")
+        lines.append(f"Total bacteria count: {data.get('total_bacteria_count', 0)}")
+        lines.append(f"Total bacteria area: {data.get('total_bacteria_area_um2', 0.0):.2f} µm²")
+        lines.append("")
+        lines.append("Z-plane bacteria count and area:")
+        lines.append("Z plane\tBacteria count\tBacteria area (µm²)")
+        z_plane_count = data.get('z_plane_count', 0)
+        for z in range(z_plane_count):
+            count = len(data.get('bac_centroid_xy_coordinates', {}).get(f"xy_Z_{z}", []))
+            area = data.get('bacteria_area_per_z_plane', {}).get(z, 0.0)
+            lines.append(f"{z}\t{count}\t{area:.2f}")
+        return lines
+
+    def _save_results_txt(self, path, data):
+        lines = self._build_export_lines(data)
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write('\n'.join(lines))
+
+    def _save_results_csv(self, path, data):
+        lines = self._build_export_lines(data)
+        with open(path, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["Image Information"])
+            # write header lines as single-column rows until blank line
+            for line in lines:
+                if not line:
+                    writer.writerow([])
+                elif '\t' in line:
+                    writer.writerow(line.split('\t'))
+                else:
+                    writer.writerow([line])
+
     def open_instruction(self):
         if not self.instruction_window or not self.instruction_window.isVisible():
             self.instruction_window = QDialog()
@@ -526,7 +722,30 @@ class Find_Bacteria(QWidget):
     def on_layers_removed(self, event):
         # Clear analysis info if both bounding box and mask layers are deleted
         layer_names = [layer.name for layer in self.viewer.layers]
-        has_bbox = any(name.endswith("_Bounding box") or "_Bounding box" in name for name in layer_names)
-        has_mask = any(name.endswith("_Bacteria mask") or "_Bacteria mask" in name for name in layer_names)
+        # Prefer explicit stored names if available
+        if hasattr(self, '_bbox_layer_name'):
+            has_bbox = any(name == self._bbox_layer_name or self._bbox_layer_name in name for name in layer_names)
+        else:
+            has_bbox = any(name.endswith("_Bounding box") or "_Bounding box" in name for name in layer_names)
+
+        if hasattr(self, '_mask_layer_name'):
+            has_mask = any(name == self._mask_layer_name or self._mask_layer_name in name for name in layer_names)
+        else:
+            has_mask = any(name.endswith("_Bacteria mask") or "_Bacteria mask" in name for name in layer_names)
+
         if not has_bbox and not has_mask:
-            self.analysis_info.setText("")
+            self.analysis_info.setPlainText("")
+            self.analysis_active = False
+            self.export_button.setEnabled(False)
+            self._latest_analysis_data = None
+            # remove stored names so future analyses can reuse base names
+            if hasattr(self, '_bbox_layer_name'):
+                try:
+                    del self._bbox_layer_name
+                except Exception:
+                    pass
+            if hasattr(self, '_mask_layer_name'):
+                try:
+                    del self._mask_layer_name
+                except Exception:
+                    pass

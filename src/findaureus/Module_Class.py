@@ -328,38 +328,49 @@ class ReadImage:
         centroid = []
         area_list_um2 = []
         boxes = []
-        bound_boxed_image = np.zeros_like(input_image)  # Create empty image instead of copying
-        
+        areas_pixels = []
+        bound_boxed_image = np.zeros_like(input_image, dtype=np.uint8)
+
+        scalex, scaley = scalexy
+        bac_dia = 0.5
+
+        # Collect candidate boxes and their pixel areas
         for cnt in found_contour:
-            scalex,scaley = scalexy
-            bac_dia = 0.5
             contour_area = cv2.contourArea(cnt)
-            contour_area_um = (scalex*scaley)*(contour_area)
-            area_bac_um = np.pi*(bac_dia/2)**2
-            
-            if contour_area_um<=area_bac_um: 
-                continue
+            contour_area_um = (scalex * scaley) * contour_area
+            # Accept all contours (including small ones) to ensure boxes are shown
+
             x, y, w, h = cv2.boundingRect(cnt)
-            
-            if w and h >= input_image.shape[0] and input_image.shape[1]:
-                break
-            boxes.append((x,y,w,h))
-       
-        selected_boxes = ReadImage.NonMaxSuppression(boxes, overlap_thresh=0.3)
-            
+            # skip degenerate boxes or boxes larger than image
+            if w == 0 or h == 0:
+                continue
+            if w >= input_image.shape[1] or h >= input_image.shape[0]:
+                continue
+
+            boxes.append((x, y, w, h))
+            areas_pixels.append(w * h)
+
+        if len(boxes) == 0:
+            return bound_boxed_image, [], {}
+
+        # Apply non-max suppression to remove overlapping boxes
+        selected_boxes = ReadImage.NonMaxSuppression(np.array(boxes), overlap_thresh=0.3)
+
         for box in selected_boxes:
-            x,y,w,h = box
+            x, y, w, h = [int(v) for v in box]
             # Draw white boxes (255) on black background (0)
-            cv2.rectangle(bound_boxed_image,(x,y),(x+w,y+h),255,1)
+            cv2.rectangle(bound_boxed_image, (x, y), (x + w, y + h), 255, 1)
             cx = int(x + 0.5 * w)
             cy = int(y + 0.5 * h)
-            cxy = (cx,cy)
-            area_list_um2.append(contour_area_um)
+            cxy = (cx, cy)
+            # approximate area using box pixel area
+            area_um2 = (w * h) * (scalex * scaley)
+            area_list_um2.append(area_um2)
             centroid.append(cxy)
-        
-        coord_area_um2 = dict(zip(centroid,area_list_um2))
-        
-        return(bound_boxed_image, centroid, coord_area_um2)
+
+        coord_area_um2 = dict(zip(centroid, area_list_um2))
+
+        return (bound_boxed_image, centroid, coord_area_um2)
     
     def FindBacteriaAndNoBacteria(imagelist, scalexy):
         bac_image_list_mask = []
